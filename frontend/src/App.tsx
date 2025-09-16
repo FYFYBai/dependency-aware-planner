@@ -4,6 +4,15 @@ import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage.tsx';
 
 function App() {
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:8081/api/public/hello")
+      .then((res) => setMessage(res.data))
+      .catch((err) => console.error(err));
+  }, []);
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-white">

@@ -40,6 +40,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() // Allow auth endpoints
                 .requestMatchers("/api/public/**").permitAll() // Allow public endpoints
+                .requestMatchers("/api/hello").permitAll() // Allow hello endpoint
                 .anyRequest().authenticated() // Everything else requires authentication
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
