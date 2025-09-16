@@ -40,10 +40,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: { username: string; email: string; password: string }) => {
     try {
       const response = await axios.post('http://localhost:8081/api/auth/register', userData);
-      const { token, username, email } = response.data;
-      
-      localStorage.setItem('token', token);
-      setUser({ id: '1', username, email }); // Create user object from response
+      // Don't automatically log in after registration - just return success
+      // User will be redirected to login page
     } catch (error: unknown) {
       const errorMessage = error instanceof Error && 'response' in error 
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed'

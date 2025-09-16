@@ -77,7 +77,8 @@ const RegistrationPage: React.FC = () => {
         email: formData.email,
         password: formData.password
       });
-      navigate('/dashboard');
+      // Redirect to login page after successful registration
+      navigate('/login');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setGeneralError(errorMessage);

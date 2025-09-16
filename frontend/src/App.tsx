@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContextProvider';
 import LoginPage from './pages/LoginPage';
-import RegistrationPage from './pages/RegistrationPage.tsx';
+import RegistrationPage from './pages/RegistrationPage';
 
 function App() {
   const [message, setMessage] = useState("");
