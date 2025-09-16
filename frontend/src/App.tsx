@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContextProvider';
+import LoginPage from './pages/LoginPage';
+import RegistrationPage from './pages/RegistrationPage.tsx';
 
 function App() {
   const [message, setMessage] = useState("");
@@ -12,11 +14,15 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <h1 className="text-4xl font-bold text-white">
-        {message || "Loading..."}
-      </h1>
-    </div>
+    <AuthProvider>
+      <div className="min-h-screen bg-white">
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegistrationPage />} />
+        </Routes>
+      </div>
+    </AuthProvider>
   );
 }
 
