@@ -17,7 +17,7 @@ function App() {
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen" style={{background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)'}}>
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />

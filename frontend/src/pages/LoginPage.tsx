@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import {
+  MDBBtn,
+  MDBContainer,
+  MDBRow,
+  MDBCol,
+  MDBCard,
+  MDBCardBody,
+  MDBInput,
+  MDBIcon,
+  MDBCheckbox
+} from 'mdb-react-ui-kit';
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -76,103 +86,87 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="w-full max-w-md">
-        <div className="bg-white p-8 rounded-lg shadow-lg border border-gray-100">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Login</h2>
-            <div className="w-12 h-1 bg-blue-600 rounded"></div>
-          </div>
+    <MDBContainer fluid>
+      <MDBRow className='d-flex justify-content-center align-items-center h-100'>
+        <MDBCol col='12'>
+          <MDBCard className='bg-white my-5 mx-auto' style={{borderRadius: '1rem', maxWidth: '500px'}}>
+            <MDBCardBody className='p-5 w-100 d-flex flex-column'>
+              <h2 className="fw-bold mb-2 text-center">Sign in</h2>
+              <p className="text-muted mb-3 text-center">Please enter your login and password!</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {generalError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-                {generalError}
-              </div>
-            )}
+              {generalError && (
+                <div className="alert alert-danger" role="alert">
+                  {generalError}
+                </div>
+              )}
 
-            <div className="space-y-1">
-              <div className="flex items-center border-b border-gray-300 pb-2">
-                <Mail className="w-5 h-5 text-gray-400 mr-3" />
-                <input
-                  type="email"
-                  placeholder="Enter your email"
+              <form onSubmit={handleSubmit}>
+                <MDBInput 
+                  wrapperClass='mb-4 w-100' 
+                  label='Email address' 
+                  id='email' 
+                  type='email' 
+                  size="lg"
                   value={formData.email}
                   onChange={handleInputChange}
                   name="email"
-                  className="flex-1 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
                 />
-              </div>
-              {errors.email && (
-                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-              )}
-            </div>
+                {errors.email && (
+                  <div className="text-danger small mb-3">{errors.email}</div>
+                )}
 
-            <div className="space-y-1">
-              <div className="flex items-center border-b border-gray-300 pb-2">
-                <Lock className="w-5 h-5 text-gray-400 mr-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                <MDBInput 
+                  wrapperClass='mb-4 w-100' 
+                  label='Password' 
+                  id='password' 
+                  type={showPassword ? 'text' : 'password'} 
+                  size="lg"
                   value={formData.password}
                   onChange={handleInputChange}
                   name="password"
-                  className="flex-1 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
                 />
-                <button
-                  type="button"
-                  onClick={togglePasswordVisibility}
-                  className="ml-3 text-gray-400 hover:text-gray-600 transition-colors"
+                {errors.password && (
+                  <div className="text-danger small mb-3">{errors.password}</div>
+                )}
+
+                <div className="d-flex justify-content-between mb-4">
+                  <MDBCheckbox 
+                    name='rememberMe' 
+                    id='rememberMe' 
+                    label='Remember password' 
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <Link to="/forgot-password" className="text-primary">
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <MDBBtn 
+                  size='lg' 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="w-100 mb-4"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                  {isLoading ? 'Logging in...' : 'Login'}
+                </MDBBtn>
+              </form>
+
+              <hr className="my-4" />
+
+              <div className="text-center">
+                <p className="mb-0">
+                  Don't have an account?{' '}
+                  <Link to="/register" className="text-primary fw-bold">
+                    Sign up
+                  </Link>
+                </p>
               </div>
-              {errors.password && (
-                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 transition-colors"
-            >
-              {isLoading ? 'Logging in...' : 'Login Now'}
-            </button>
-
-            <div className="text-center">
-              <p className="text-gray-600 text-sm">
-                Don't have an account?{' '}
-                <Link
-                  to="/register"
-                  className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                >
-                  Signup now
-                </Link>
-              </p>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+            </MDBCardBody>
+          </MDBCard>
+        </MDBCol>
+      </MDBRow>
+    </MDBContainer>
   );
 };
 
