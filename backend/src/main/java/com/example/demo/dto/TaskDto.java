@@ -17,4 +17,7 @@ public class TaskDto {
     private LocalDate startDate;
     private LocalDate dueDate;
     private LocalDateTime createdAt;
+
+    private Integer position;   // for ordering
+    private Long listId;        // for list relation
 }

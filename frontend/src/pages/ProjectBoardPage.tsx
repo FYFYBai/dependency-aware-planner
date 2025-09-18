@@ -3,8 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
 import {
   MDBContainer,
-  MDBRow,
-  MDBCol,
   MDBCard,
   MDBCardBody,
   MDBCardTitle,
@@ -22,41 +20,80 @@ import {
   deleteList,
   updateTask,
   deleteTask,
+  type Project,
+  type BoardList,
+  type Task,
 } from "../api/projects";
 import { Pencil, Trash2 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+} from "@dnd-kit/core";
+import type { DragEndEvent, UniqueIdentifier } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  horizontalListSortingStrategy,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-/* ---- Local fallback types ---- */
-type TaskType = {
-  id: number;
-  name: string;
-  description?: string | null;
-  startDate?: string | null;
-  dueDate?: string | null;
-};
-type BoardListType = {
-  id: number;
-  name: string;
-  position: number;
-  tasks: TaskType[];
-};
-type ProjectType = {
-  id: number;
-  name: string;
-};
+/* ---------------- Helpers to avoid ID collisions ---------------- */
+const listKey = (id: number) => `list-${id}`;
+const taskKey = (id: number) => `task-${id}`;
+const isListKey = (id: UniqueIdentifier) => String(id).startsWith("list-");
+const isTaskKey = (id: UniqueIdentifier) => String(id).startsWith("task-");
+const parseKey = (id: UniqueIdentifier) => Number(String(id).split("-")[1]);
 
-/* ---------------------- Task Section ---------------------- */
+/* ---------------- Sortable/droppable wrappers ---------------- */
+function SortableItem({
+  id,
+  children,
+}: {
+  id: UniqueIdentifier;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
+
+function Droppable({
+  id,
+  children,
+}: {
+  id: UniqueIdentifier;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} style={{ minHeight: 4 }}>
+      {children}
+    </div>
+  );
+}
+
+/* ---------------- Tasks (per-list) ---------------- */
 function TaskSection({
   projectId,
-  listId,
-  tasks,
+  list,
 }: {
   projectId: number;
-  listId: number;
-  tasks: TaskType[];
+  list: BoardList;
 }) {
   const queryClient = useQueryClient();
   const [addingTask, setAddingTask] = useState(false);
-  const [editingTask, setEditingTask] = useState<TaskType | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTask, setNewTask] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -64,23 +101,34 @@ function TaskSection({
   const [error, setError] = useState("");
 
   const addTaskMutation = useMutation({
-    mutationFn: (taskData: {
-      name: string;
-      description: string;
-      startDate: string;
-      dueDate: string;
-    }) => createTask(listId, taskData),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
+    mutationFn: () =>
+      createTask(list.id, {
+        name: newTask,
+        description,
+        startDate,
+        dueDate,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
+      setNewTask("");
+      setDescription("");
+      setStartDate("");
+      setDueDate("");
+      setAddingTask(false);
+    },
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: (task: TaskType) =>
+    mutationFn: (task: Task) =>
       updateTask(task.id, {
+        // send only fields that may change during edit
         name: task.name,
-        description: task.description,
-        startDate: task.startDate,
-        dueDate: task.dueDate,
+        description: task.description ?? undefined,
+        startDate: task.startDate ?? undefined,
+        dueDate: task.dueDate ?? undefined,
+        // keep list/position stable when editing
+        listId: list.id,
+        position: task.position ?? undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
@@ -100,116 +148,124 @@ function TaskSection({
       return;
     }
     setError("");
-    addTaskMutation.mutate(
-      { name: newTask, description, startDate, dueDate },
-      {
-        onSuccess: () => {
-          setNewTask("");
-          setDescription("");
-          setStartDate("");
-          setDueDate("");
-          setAddingTask(false);
-        },
-      }
-    );
+    addTaskMutation.mutate();
   };
 
   return (
     <>
-      {tasks.map((task) =>
-        editingTask && editingTask.id === task.id ? (
-          <motion.div
-            key={task.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="p-2 mb-2 bg-light border rounded text-start"
-          >
-            <MDBInput
-              label="Task Name *"
-              value={editingTask.name}
-              onChange={(e) =>
-                setEditingTask({ ...editingTask, name: e.target.value })
-              }
-              className="mb-2"
-            />
-            <MDBInput
-              label="Description"
-              value={editingTask.description || ""}
-              onChange={(e) =>
-                setEditingTask({ ...editingTask, description: e.target.value })
-              }
-              className="mb-2"
-            />
-            <MDBInput
-              label="Start Date"
-              type="date"
-              value={editingTask.startDate || ""}
-              onChange={(e) =>
-                setEditingTask({ ...editingTask, startDate: e.target.value })
-              }
-              className="mb-2"
-            />
-            <MDBInput
-              label="Due Date"
-              type="date"
-              value={editingTask.dueDate || ""}
-              onChange={(e) =>
-                setEditingTask({ ...editingTask, dueDate: e.target.value })
-              }
-              className="mb-2"
-            />
-            <MDBBtn
-              size="sm"
-              className="me-2"
-              onClick={() => updateTaskMutation.mutate(editingTask)}
-            >
-              Update
-            </MDBBtn>
-            <MDBBtn outline size="sm" onClick={() => setEditingTask(null)}>
-              Cancel
-            </MDBBtn>
-          </motion.div>
-        ) : (
-          <motion.div
-            key={task.id}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-            className="p-2 mb-2 bg-light border rounded text-start"
-          >
-            <div className="d-flex justify-content-between align-items-center">
-              <strong>{task.name}</strong>
-              <div className="d-flex gap-2">
-                <span title="Edit task">
-                  <Pencil
-                    size={16}
-                    className="text-primary"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setEditingTask(task)}
-                  />
-                </span>
-                <span title="Delete task">
-                  <Trash2
-                    size={16}
-                    className="text-danger"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => deleteTaskMutation.mutate(task.id)}
-                  />
-                </span>
-              </div>
-            </div>
-            {task.description && (
-              <div className="text-muted small mt-1">{task.description}</div>
-            )}
-            {(task.startDate || task.dueDate) && (
-              <div className="text-muted small mt-1">
-                {task.startDate && <>Start: {task.startDate} </>}
-                {task.dueDate && <>• Due: {task.dueDate}</>}
-              </div>
-            )}
-          </motion.div>
-        )
-      )}
+      <Droppable id={listKey(list.id)}>
+        <SortableContext
+          items={list.tasks.map((t) => taskKey(t.id))}
+          strategy={verticalListSortingStrategy}
+        >
+          {list.tasks.map((task) =>
+            editingTask && editingTask.id === task.id ? (
+              <motion.div
+                key={task.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="p-2 mb-2 bg-light border rounded text-start"
+              >
+                <MDBInput
+                  label="Task Name *"
+                  value={editingTask.name}
+                  onChange={(e) =>
+                    setEditingTask({ ...editingTask, name: e.target.value })
+                  }
+                  className="mb-2"
+                />
+                <MDBInput
+                  label="Description"
+                  value={editingTask.description || ""}
+                  onChange={(e) =>
+                    setEditingTask({
+                      ...editingTask,
+                      description: e.target.value,
+                    })
+                  }
+                  className="mb-2"
+                />
+                <MDBInput
+                  label="Start Date"
+                  type="date"
+                  value={editingTask.startDate || ""}
+                  onChange={(e) =>
+                    setEditingTask({
+                      ...editingTask,
+                      startDate: e.target.value,
+                    })
+                  }
+                  className="mb-2"
+                />
+                <MDBInput
+                  label="Due Date"
+                  type="date"
+                  value={editingTask.dueDate || ""}
+                  onChange={(e) =>
+                    setEditingTask({
+                      ...editingTask,
+                      dueDate: e.target.value,
+                    })
+                  }
+                  className="mb-2"
+                />
+                <MDBBtn
+                  size="sm"
+                  className="me-2"
+                  onClick={() => updateTaskMutation.mutate(editingTask)}
+                >
+                  Update
+                </MDBBtn>
+                <MDBBtn outline size="sm" onClick={() => setEditingTask(null)}>
+                  Cancel
+                </MDBBtn>
+              </motion.div>
+            ) : (
+              <SortableItem key={task.id} id={taskKey(task.id)}>
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="p-2 mb-2 bg-light border rounded text-start"
+                >
+                  <div className="d-flex justify-content-between align-items-center">
+                    <strong>{task.name}</strong>
+                    <div className="d-flex gap-2">
+                      <span title="Edit task">
+                        <Pencil
+                          size={16}
+                          className="text-primary"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setEditingTask(task)}
+                        />
+                      </span>
+                      <span title="Delete task">
+                        <Trash2
+                          size={16}
+                          className="text-danger"
+                          style={{ cursor: "pointer" }}
+                          onClick={() => deleteTaskMutation.mutate(task.id)}
+                        />
+                      </span>
+                    </div>
+                  </div>
+                  {task.description && (
+                    <div className="text-muted small mt-1">
+                      {task.description}
+                    </div>
+                  )}
+                  {(task.startDate || task.dueDate) && (
+                    <div className="text-muted small mt-1">
+                      {task.startDate && <>Start: {task.startDate} </>}
+                      {task.dueDate && <>• Due: {task.dueDate}</>}
+                    </div>
+                  )}
+                </motion.div>
+              </SortableItem>
+            )
+          )}
+        </SortableContext>
+      </Droppable>
 
       {addingTask ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -262,7 +318,7 @@ function TaskSection({
   );
 }
 
-/* ---------------------- Add List Card ---------------------- */
+/* ---------------- Add-list card ---------------- */
 function AddListCard({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const [addingList, setAddingList] = useState(false);
@@ -270,8 +326,8 @@ function AddListCard({ projectId }: { projectId: number }) {
   const [error, setError] = useState("");
 
   const addListMutation = useMutation({
-    mutationFn: (listData: { name: string }) =>
-      createList(projectId, listData.name),
+    mutationFn: (payload: { name: string }) =>
+      createList(projectId, payload.name),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
   });
@@ -283,7 +339,7 @@ function AddListCard({ projectId }: { projectId: number }) {
     }
     setError("");
     addListMutation.mutate(
-      { name: newList },
+      { name: newList.trim() },
       {
         onSuccess: () => {
           setNewList("");
@@ -326,29 +382,33 @@ function AddListCard({ projectId }: { projectId: number }) {
   );
 }
 
-/* ---------------------- Project Board Page ---------------------- */
+/* ---------------- Page ---------------- */
 export default function ProjectBoardPage() {
   const { projectId: projectIdParam } = useParams();
   const projectId = Number(projectIdParam);
   const queryClient = useQueryClient();
 
-  const { data: project } = useQuery<ProjectType>({
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const { data: project } = useQuery<Project>({
     queryKey: ["project", projectId],
     queryFn: () => getProject(projectId),
     enabled: Number.isFinite(projectId),
   });
 
-  const { data: lists } = useQuery<BoardListType[]>({
+  const { data: lists } = useQuery<BoardList[]>({
     queryKey: ["lists", projectId],
     queryFn: () => getLists(projectId),
     enabled: Number.isFinite(projectId),
   });
 
-  const [editingList, setEditingList] = useState<BoardListType | null>(null);
+  const [editingList, setEditingList] = useState<BoardList | null>(null);
 
   const updateListMutation = useMutation({
-    mutationFn: (list: BoardListType) =>
-      updateList(list.id, list.name, list.position),
+    mutationFn: (list: BoardList) =>
+      updateList(list.id, list.name, list.position ?? 0),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
       setEditingList(null);
@@ -361,6 +421,124 @@ export default function ProjectBoardPage() {
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
   });
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || !lists) return;
+    if (active.id === over.id) return;
+
+    const aId = String(active.id);
+    const oId = String(over.id);
+
+    // ----- List reorder -----
+    if (isListKey(aId) && isListKey(oId)) {
+      const activeListId = parseKey(aId);
+      const overListId = parseKey(oId);
+
+      const oldIndex = lists.findIndex((l) => l.id === activeListId);
+      const newIndex = lists.findIndex((l) => l.id === overListId);
+      if (oldIndex < 0 || newIndex < 0) return;
+
+      const reordered = arrayMove(lists, oldIndex, newIndex).map((l, i) => ({
+        ...l,
+        position: i,
+      }));
+      queryClient.setQueryData<BoardList[]>(["lists", projectId], reordered);
+      reordered.forEach((list, index) => {
+        updateList(list.id, list.name, index);
+      });
+      return;
+    }
+
+    // ----- Task reorder / move between lists -----
+    if (!isTaskKey(aId)) return;
+
+    const activeTaskId = parseKey(aId);
+
+    // find source list
+    const sourceList = lists.find((l) =>
+      l.tasks.some((t) => t.id === activeTaskId)
+    );
+    if (!sourceList) return;
+
+    // find target list & target index
+    let targetList: BoardList | undefined;
+    let targetIndex: number;
+
+    if (isTaskKey(oId)) {
+      const overTaskId = parseKey(oId);
+      targetList = lists.find((l) => l.tasks.some((t) => t.id === overTaskId));
+      if (!targetList) return;
+      targetIndex = targetList.tasks.findIndex((t) => t.id === overTaskId);
+    } else if (isListKey(oId)) {
+      const overListId = parseKey(oId);
+      targetList = lists.find((l) => l.id === overListId);
+      if (!targetList) return;
+      targetIndex = targetList.tasks.length; // drop to end
+    } else {
+      return;
+    }
+
+    const sourceTasks = [...sourceList.tasks];
+    const from = sourceTasks.findIndex((t) => t.id === activeTaskId);
+    if (from < 0) return;
+    const [movedTask] = sourceTasks.splice(from, 1);
+
+    const targetTasks =
+      sourceList.id === targetList.id
+        ? [...sourceTasks]
+        : [...targetList.tasks];
+
+    // if same list, use arrayMove
+    // if same list, reorder with arrayMove
+    if (sourceList.id === targetList.id) {
+      const reordered = arrayMove(
+        [...sourceList.tasks],
+        from,
+        Math.min(targetIndex, sourceList.tasks.length - 1)
+      ).map((t, i) => ({ ...t, position: i }));
+
+      const optimistic = lists.map((l) =>
+        l.id === sourceList.id ? { ...l, tasks: reordered } : l
+      );
+      queryClient.setQueryData<BoardList[]>(["lists", projectId], optimistic);
+
+      // persist
+      reordered.forEach((t, i) => {
+        updateTask(t.id, {
+          ...t,
+          position: i,
+          listId: sourceList.id,
+        });
+      });
+      return;
+    }
+
+    // moving across lists
+    const insertAt = Math.min(targetIndex, targetTasks.length);
+    targetTasks.splice(insertAt, 0, { ...movedTask, listId: targetList.id });
+
+    const optimistic = lists.map((l) => {
+      if (l.id === sourceList.id) {
+        const withPos = sourceTasks.map((t, i) => ({ ...t, position: i }));
+        return { ...l, tasks: withPos };
+      }
+      if (l.id === targetList!.id) {
+        const withPos = targetTasks.map((t, i) => ({ ...t, position: i }));
+        return { ...l, tasks: withPos };
+      }
+      return l;
+    });
+    queryClient.setQueryData<BoardList[]>(["lists", projectId], optimistic);
+
+    // persist positions for both lists
+    sourceTasks.forEach((t, i) => {
+      updateTask(t.id, { position: i, listId: sourceList.id });
+    });
+    targetTasks.forEach((t, i) => {
+      updateTask(t.id, { position: i, listId: targetList!.id });
+    });
+  };
+
   if (!Number.isFinite(projectId)) return <div>Invalid project id</div>;
   if (!project || !lists) return <div>Loading...</div>;
 
@@ -370,81 +548,94 @@ export default function ProjectBoardPage() {
       <MDBContainer fluid className="py-4">
         <h3 className="mb-4">{project.name}</h3>
 
-        <MDBRow>
-          {lists.map((list) => (
-            <MDBCol key={list.id} md="3">
-              <MDBCard className="shadow-sm border-0 mb-4">
-                <MDBCardBody>
-                  <MDBCardTitle className="h5 d-flex justify-content-between align-items-center">
-                    <span>{list.name}</span>
-                    <span className="d-flex gap-2">
-                      <span title="Edit list">
-                        <Pencil
-                          size={18}
-                          className="text-primary"
-                          style={{ cursor: "pointer" }}
-                          onClick={() => setEditingList(list)}
-                        />
-                      </span>
-                      <span title="Delete list">
-                        <Trash2
-                          size={18}
-                          className="text-danger"
-                          style={{ cursor: "pointer" }}
-                          onClick={() => deleteListMutation.mutate(list.id)}
-                        />
-                      </span>
-                    </span>
-                  </MDBCardTitle>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={lists.map((list) => listKey(list.id))}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2">
+              {lists.map((list) => (
+                <SortableItem key={list.id} id={listKey(list.id)}>
+                  <div className="w-[320px] shrink-0">
+                    <MDBCard className="shadow-sm border-0 mb-4">
+                      <MDBCardBody>
+                        <MDBCardTitle className="h5 d-flex justify-content-between align-items-center">
+                          <span>{list.name}</span>
+                          <span className="d-flex gap-2">
+                            <span title="Edit list">
+                              <Pencil
+                                size={18}
+                                className="text-primary"
+                                style={{ cursor: "pointer" }}
+                                onClick={() => setEditingList(list)}
+                              />
+                            </span>
+                            <span title="Delete list">
+                              <Trash2
+                                size={18}
+                                className="text-danger"
+                                style={{ cursor: "pointer" }}
+                                onClick={() =>
+                                  deleteListMutation.mutate(list.id)
+                                }
+                              />
+                            </span>
+                          </span>
+                        </MDBCardTitle>
 
-                  {editingList && editingList.id === list.id ? (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <MDBInput
-                        label="List Name *"
-                        value={editingList.name}
-                        onChange={(e) =>
-                          setEditingList({
-                            ...editingList,
-                            name: e.target.value,
-                          })
-                        }
-                        className="mb-2"
-                      />
-                      <MDBBtn
-                        size="sm"
-                        className="me-2"
-                        onClick={() => updateListMutation.mutate(editingList)}
-                      >
-                        Update
-                      </MDBBtn>
-                      <MDBBtn
-                        outline
-                        size="sm"
-                        onClick={() => setEditingList(null)}
-                      >
-                        Cancel
-                      </MDBBtn>
-                    </motion.div>
-                  ) : null}
+                        {editingList && editingList.id === list.id ? (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            <MDBInput
+                              label="List Name *"
+                              value={editingList.name}
+                              onChange={(e) =>
+                                setEditingList({
+                                  ...editingList,
+                                  name: e.target.value,
+                                })
+                              }
+                              className="mb-2"
+                            />
+                            <MDBBtn
+                              size="sm"
+                              className="me-2"
+                              onClick={() =>
+                                updateListMutation.mutate(editingList)
+                              }
+                            >
+                              Update
+                            </MDBBtn>
+                            <MDBBtn
+                              outline
+                              size="sm"
+                              onClick={() => setEditingList(null)}
+                            >
+                              Cancel
+                            </MDBBtn>
+                          </motion.div>
+                        ) : null}
 
-                  <TaskSection
-                    projectId={projectId}
-                    listId={list.id}
-                    tasks={list.tasks || []}
-                  />
-                </MDBCardBody>
-              </MDBCard>
-            </MDBCol>
-          ))}
+                        {/* Tasks */}
+                        <TaskSection projectId={projectId} list={list} />
+                      </MDBCardBody>
+                    </MDBCard>
+                  </div>
+                </SortableItem>
+              ))}
 
-          {/* ✅ Always show Add List card */}
-          <MDBCol md="3">
-            <AddListCard projectId={projectId} />
-          </MDBCol>
-        </MDBRow>
+              <div className="w-[320px] shrink-0">
+                <AddListCard projectId={projectId} />
+              </div>
+            </div>
+          </SortableContext>
+        </DndContext>
       </MDBContainer>
     </div>
   );
