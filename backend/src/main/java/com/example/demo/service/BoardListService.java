@@ -15,15 +15,21 @@ public class BoardListService {
 
     private final BoardListRepository listRepo;
 
-    public List<BoardListDto> getAllByProject(Long projectId) {
-        return listRepo.findByProjectId(projectId).stream()
-                .map(ProjectMapper::toDto)
-                .toList();
-    }
+public List<BoardListDto> getAllByProject(Long projectId) {
+    return listRepo.findByProjectIdOrderByPositionAsc(projectId)
+                   .stream()
+                   .map(ProjectMapper::toDto)
+                   .toList();
+}
+
 
     public BoardListDto create(BoardList list) {
+        // auto-set position
+        int nextPosition = listRepo.findByProjectIdOrderByPositionAsc(list.getProject().getId()).size() + 1;
+        list.setPosition(nextPosition);
         return ProjectMapper.toDto(listRepo.save(list));
     }
+
 
     public BoardListDto update(Long id, BoardListDto dto) {
         BoardList list = listRepo.findById(id)

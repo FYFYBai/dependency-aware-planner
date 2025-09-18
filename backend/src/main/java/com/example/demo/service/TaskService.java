@@ -22,8 +22,12 @@ public class TaskService {
     }
 
     public TaskDto create(Task task) {
+        if (task.getName() == null || task.getName().isBlank()) {
+            throw new IllegalArgumentException("Task name is required");
+        }
         return ProjectMapper.toDto(taskRepo.save(task));
     }
+
 
     public TaskDto update(Long id, TaskDto dto) {
         Task task = taskRepo.findById(id)

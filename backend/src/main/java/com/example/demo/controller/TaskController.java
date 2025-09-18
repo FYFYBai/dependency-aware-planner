@@ -22,8 +22,10 @@ public class TaskController {
 
     @PostMapping
     public TaskDto create(@RequestBody Task task) {
+        System.out.println(">>> Received JSON task: " + task);
         return taskService.create(task);
     }
+
 
     @PutMapping("/{id}")
     public TaskDto update(@PathVariable Long id, @RequestBody TaskDto dto) {

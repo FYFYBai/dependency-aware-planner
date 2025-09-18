@@ -2,6 +2,7 @@ package com.example.demo.service;
 
 import com.example.demo.dto.ProjectDto;
 import com.example.demo.entity.Project;
+import com.example.demo.entity.User;
 import com.example.demo.mapper.ProjectMapper;
 import com.example.demo.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,20 @@ public class ProjectService {
                 .toList();
     }
 
-    public ProjectDto create(Project project) {
+    public ProjectDto create(ProjectDto dto, User owner) {
+        Project project = new Project();
+        project.setName(dto.getName());
+        project.setDescription(dto.getDescription());
+        project.setOwner(owner); // from JWT principal
         return ProjectMapper.toDto(projectRepo.save(project));
     }
 
+    public ProjectDto getById(Long id) {
+        Project project = projectRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Project not found with id " + id));
+        return ProjectMapper.toDto(project);
+    }
+    
     public ProjectDto update(Long id, ProjectDto dto) {
         Project project = projectRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
