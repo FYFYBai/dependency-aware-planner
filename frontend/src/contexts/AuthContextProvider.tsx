@@ -15,9 +15,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Check if user is logged in on app start
     const token = localStorage.getItem('token');
-    if (token) {
-      // You can add token validation here
-      setUser({ id: '1', username: 'user', email: 'user@example.com' });
+    const storedUser = localStorage.getItem('user');
+    
+    if (token && storedUser) {
+      try {
+        // Parse the stored user data
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+      } catch {
+        // If parsing fails, clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
     }
     setIsLoading(false);
   }, []);
@@ -27,8 +37,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await axios.post('http://localhost:8081/api/auth/login', credentials);
       const { token, username, email } = response.data;
       
+      // Create user object from response
+      const userData = { id: '1', username, email };
+      
+      // Store both token and user data in localStorage
       localStorage.setItem('token', token);
-      setUser({ id: '1', username, email }); // Create user object from response
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error && 'response' in error 
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Login failed'
@@ -39,7 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (userData: { username: string; email: string; password: string }) => {
     try {
-      const response = await axios.post('http://localhost:8081/api/auth/register', userData);
+      await axios.post('http://localhost:8081/api/auth/register', userData);
       // Don't automatically log in after registration - just return success
       // User will be redirected to login page
     } catch (error: unknown) {
@@ -52,6 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
