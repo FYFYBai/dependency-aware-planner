@@ -62,23 +62,8 @@ export default function Navbar() {
               </MDBNavbarItem>
             </MDBNavbarNav>
 
-            {/* Search Bar - positioned after Analytics with spacing */}
-            <div className='flex-grow-1 d-flex justify-content-center'>
-              <form className='d-flex input-group' style={{ maxWidth: '400px' }}>
-                <input 
-                  type='search' 
-                  className='form-control' 
-                  placeholder='Search projects, tasks...' 
-                  aria-label='Search' 
-                />
-                <MDBBtn color='primary' type='submit'>
-                  <MDBIcon icon='search' />
-                </MDBBtn>
-              </form>
-            </div>
-
             {/* Right side - User Menu only */}
-            <div className='d-flex align-items-center ms-4'>
+            <div className='d-flex align-items-center ms-auto'>
               {/* User Dropdown */}
               {user ? (
                 <MDBDropdown>
