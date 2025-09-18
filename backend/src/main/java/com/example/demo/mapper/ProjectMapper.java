@@ -33,12 +33,14 @@ public class ProjectMapper {
 
     public static TaskDto toDto(Task task) {
         return new TaskDto(
-                task.getId(),
-                task.getName(),
-                task.getDescription(),
-                task.getStartDate(),
-                task.getDueDate(),
-                task.getCreatedAt()
+            task.getId(),
+            task.getName(),
+            task.getDescription(),
+            task.getStartDate(),
+            task.getDueDate(),
+            task.getCreatedAt(),
+            task.getPosition(),
+            task.getList() != null ? task.getList().getId() : null
         );
     }
 }

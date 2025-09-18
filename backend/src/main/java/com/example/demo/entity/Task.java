@@ -20,6 +20,10 @@ public class Task {
     private LocalDate dueDate;
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "position")
+    private int position;
+
+
     @ManyToOne
     @JoinColumn(name = "project_id")
     private Project project;
