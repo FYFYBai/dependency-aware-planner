@@ -2,8 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.TaskDto;
 import com.example.demo.entity.Task;
-import com.example.demo.mapper.ProjectMapper;
-import com.example.demo.repository.TaskRepository;
+import com.example.demo.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,37 +13,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TaskController {
 
-    private final TaskRepository taskRepo;
-
-    @GetMapping
-    public List<TaskDto> getAll() {
-        return taskRepo.findAll().stream()
-                .map(ProjectMapper::toDto)
-                .toList();
-    }
+    private final TaskService taskService;
 
     @GetMapping("/list/{listId}")
-    public List<TaskDto> getTasksByList(@PathVariable Long listId) {
-        return taskRepo.findByListId(listId).stream()
-                .map(ProjectMapper::toDto)
-                .toList();
+    public List<TaskDto> getAllByList(@PathVariable Long listId) {
+        return taskService.getAllByList(listId);
     }
-
 
     @PostMapping
     public TaskDto create(@RequestBody Task task) {
-        return ProjectMapper.toDto(taskRepo.save(task));
+        return taskService.create(task);
     }
 
     @PutMapping("/{id}")
-    public TaskDto update(@PathVariable Long id, @RequestBody Task updated) {
-        return taskRepo.findById(id)
-                .map(task -> {
-                    task.setName(updated.getName());
-                    task.setDescription(updated.getDescription());
-                    task.setList(updated.getList()); // move task
-                    return ProjectMapper.toDto(taskRepo.save(task));
-                })
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+    public TaskDto update(@PathVariable Long id, @RequestBody TaskDto dto) {
+        return taskService.update(id, dto);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        taskService.delete(id);
     }
 }

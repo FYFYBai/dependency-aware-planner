@@ -2,8 +2,7 @@ package com.example.demo.controller;
 
 import com.example.demo.dto.BoardListDto;
 import com.example.demo.entity.BoardList;
-import com.example.demo.mapper.ProjectMapper;
-import com.example.demo.repository.BoardListRepository;
+import com.example.demo.service.BoardListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,24 +13,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BoardListController {
 
-    private final BoardListRepository listRepo;
+    private final BoardListService listService;
 
-    @GetMapping
-    public List<BoardListDto> getAll() {
-        return listRepo.findAll().stream()
-                .map(ProjectMapper::toDto)
-                .toList();
-    }
-    
     @GetMapping("/project/{projectId}")
-    public List<BoardListDto> getListsByProject(@PathVariable Long projectId) {
-        return listRepo.findByProjectId(projectId).stream()
-                .map(ProjectMapper::toDto)
-                .toList();
+    public List<BoardListDto> getAllByProject(@PathVariable Long projectId) {
+        return listService.getAllByProject(projectId);
     }
 
     @PostMapping
     public BoardListDto create(@RequestBody BoardList list) {
-        return ProjectMapper.toDto(listRepo.save(list));
+        return listService.create(list);
+    }
+
+    @PutMapping("/{id}")
+    public BoardListDto update(@PathVariable Long id, @RequestBody BoardListDto dto) {
+        return listService.update(id, dto);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        listService.delete(id);
     }
 }
