@@ -79,8 +79,7 @@ export default function Navbar() {
                   <MDBDropdownMenu>
                     <MDBDropdownItem header>
                       <div className='text-center'>
-                        <div className='fw-bold'>{user.username}</div>
-                        <div className='text-muted small'>{user.email}</div>
+                        <div className='fw-bold'>{user.email}</div>
                       </div>
                     </MDBDropdownItem>
                     <MDBDropdownItem divider />
