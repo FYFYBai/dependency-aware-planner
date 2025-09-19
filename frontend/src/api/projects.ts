@@ -81,13 +81,9 @@ export const createTask = async (
 };
 
 export const updateTask = async (id: number, task: Partial<Task>) => {
-  // Convert FE { listId } to BE { list: { id } }
-  const payload: Record<string, unknown> = { ...task };
-  if (task.listId) {
-    payload.list = { id: task.listId };
-    delete payload.listId;
-  }
-  const res = await api.put<Task>(`/tasks/${id}`, payload);
+  // Directly send TaskDto shape
+  const res = await api.put<Task>(`/tasks/${id}`, task);
+
   return res.data;
 };
 
