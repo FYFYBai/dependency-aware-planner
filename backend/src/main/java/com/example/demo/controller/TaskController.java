@@ -1,7 +1,6 @@
 package com.example.demo.controller;
 
 import com.example.demo.dto.TaskDto;
-import com.example.demo.entity.Task;
 import com.example.demo.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -21,10 +20,11 @@ public class TaskController {
     }
 
     @PostMapping
-    public TaskDto create(@RequestBody Task task) {
-        System.out.println(">>> Received JSON task: " + task);
-        return taskService.create(task);
+    public TaskDto create(@RequestBody TaskDto dto) {
+        System.out.println(">>> Received JSON task DTO: " + dto);
+        return taskService.create(dto);
     }
+
 
 
     @PutMapping("/{id}")
