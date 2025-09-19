@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   MDBContainer,
   MDBNavbar,
@@ -22,6 +22,7 @@ export default function Navbar() {
   const [openBasic, setOpenBasic] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -58,8 +59,8 @@ export default function Navbar() {
             <MDBNavbarNav className='d-flex flex-row me-4'>
               <MDBNavbarItem className='me-3'>
                 <MDBNavbarLink 
-                  active 
-                  aria-current='page' 
+                  active={location.pathname === '/dashboard'}
+                  aria-current={location.pathname === '/dashboard' ? 'page' : undefined}
                   href='#'
                   onClick={(e) => {
                     e.preventDefault();
@@ -72,10 +73,12 @@ export default function Navbar() {
               </MDBNavbarItem>
               <MDBNavbarItem className='me-3'>
                 <MDBNavbarLink 
+                  active={location.pathname === '/projects'}
+                  aria-current={location.pathname === '/projects' ? 'page' : undefined}
                   href='#'
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate('/dashboard');
+                    navigate('/projects');
                   }}
                   style={{ cursor: 'pointer' }}
                 >
@@ -84,10 +87,12 @@ export default function Navbar() {
               </MDBNavbarItem>
               <MDBNavbarItem className='me-3'>
                 <MDBNavbarLink 
+                  active={location.pathname === '/tasks'}
+                  aria-current={location.pathname === '/tasks' ? 'page' : undefined}
                   href='#'
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate('/dashboard');
+                    navigate('/tasks');
                   }}
                   style={{ cursor: 'pointer' }}
                 >
@@ -96,10 +101,12 @@ export default function Navbar() {
               </MDBNavbarItem>
               <MDBNavbarItem className='me-4'>
                 <MDBNavbarLink 
+                  active={location.pathname === '/analytics'}
+                  aria-current={location.pathname === '/analytics' ? 'page' : undefined}
                   href='#'
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate('/dashboard');
+                    navigate('/analytics');
                   }}
                   style={{ cursor: 'pointer' }}
                 >

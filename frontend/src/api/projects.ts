@@ -27,6 +27,11 @@ export interface BoardList {
 }
 
 /* ---------------------- Projects ---------------------- */
+export const getAllProjects = async (): Promise<Project[]> => {
+  const res = await api.get<Project[]>('/projects');
+  return res.data;
+};
+
 export const getProject = async (projectId: number): Promise<Project> => {
   const res = await api.get<Project>(`/projects/${projectId}`);
   return res.data;
@@ -77,7 +82,7 @@ export const createTask = async (
 
 export const updateTask = async (id: number, task: Partial<Task>) => {
   // Convert FE { listId } to BE { list: { id } }
-  const payload: any = { ...task };
+  const payload: Record<string, unknown> = { ...task };
   if (task.listId) {
     payload.list = { id: task.listId };
     delete payload.listId;
