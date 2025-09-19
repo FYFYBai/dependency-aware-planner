@@ -61,8 +61,12 @@ export default function DashboardPage() {
                   >
                     <i className='fas fa-plus me-2'></i>Create New Project
                   </button>
-                  <button className='btn btn-outline-primary' style={{borderRadius: '6px'}}>
-                    <i className='fas fa-chart-bar me-2'></i>View Analytics
+                  <button 
+                    className='btn btn-outline-primary' 
+                    style={{borderRadius: '6px'}}
+                    onClick={() => navigate('/projects')}
+                  >
+                    <i className='fas fa-folder-open me-2'></i>View Projects
                   </button>
                 </div>
               </MDBCardBody>

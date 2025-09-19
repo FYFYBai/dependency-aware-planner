@@ -101,16 +101,16 @@ export default function Navbar() {
               </MDBNavbarItem>
               <MDBNavbarItem className='me-4'>
                 <MDBNavbarLink 
-                  active={location.pathname === '/analytics'}
-                  aria-current={location.pathname === '/analytics' ? 'page' : undefined}
+                  active={location.pathname === '/projects'}
+                  aria-current={location.pathname === '/projects' ? 'page' : undefined}
                   href='#'
                   onClick={(e) => {
                     e.preventDefault();
-                    navigate('/analytics');
+                    navigate('/projects');
                   }}
                   style={{ cursor: 'pointer' }}
                 >
-                  Analytics
+                  View Projects
                 </MDBNavbarLink>
               </MDBNavbarItem>
             </MDBNavbarNav>
