@@ -1,9 +1,11 @@
 import { MDBContainer, MDBRow, MDBCol, MDBCard, MDBCardBody, MDBCardTitle, MDBCardText } from 'mdb-react-ui-kit';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className='min-h-screen' style={{background: '#f8f9fa'}}>
@@ -52,7 +54,11 @@ export default function DashboardPage() {
                   </li>
                 </ul>
                 <div className='mt-4'>
-                  <button className='btn btn-primary me-3' style={{borderRadius: '6px'}}>
+                  <button 
+                    className='btn btn-primary me-3' 
+                    style={{borderRadius: '6px'}}
+                    onClick={() => navigate('/projects/new')}
+                  >
                     <i className='fas fa-plus me-2'></i>Create New Project
                   </button>
                   <button className='btn btn-outline-primary' style={{borderRadius: '6px'}}>

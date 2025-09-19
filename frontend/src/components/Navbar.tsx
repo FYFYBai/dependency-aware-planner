@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   MDBContainer,
   MDBNavbar,
@@ -20,6 +21,7 @@ import { useAuth } from '../hooks/useAuth';
 export default function Navbar() {
   const [openBasic, setOpenBasic] = useState(false);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
@@ -29,7 +31,15 @@ export default function Navbar() {
   return (
     <MDBNavbar expand='lg' light bgColor='light' className='shadow-sm'>
       <MDBContainer fluid>
-        <MDBNavbarBrand href='#' className='fw-bold text-primary'>
+        <MDBNavbarBrand 
+          href='#' 
+          className='fw-bold text-primary'
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('/dashboard');
+          }}
+          style={{ cursor: 'pointer' }}
+        >
           Dependency Planner
         </MDBNavbarBrand>
 
@@ -47,18 +57,54 @@ export default function Navbar() {
             {/* Navigation Links */}
             <MDBNavbarNav className='d-flex flex-row me-4'>
               <MDBNavbarItem className='me-3'>
-                <MDBNavbarLink active aria-current='page' href='#'>
+                <MDBNavbarLink 
+                  active 
+                  aria-current='page' 
+                  href='#'
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/dashboard');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   Dashboard
                 </MDBNavbarLink>
               </MDBNavbarItem>
               <MDBNavbarItem className='me-3'>
-                <MDBNavbarLink href='#'>Projects</MDBNavbarLink>
+                <MDBNavbarLink 
+                  href='#'
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/dashboard');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Projects
+                </MDBNavbarLink>
               </MDBNavbarItem>
               <MDBNavbarItem className='me-3'>
-                <MDBNavbarLink href='#'>Tasks</MDBNavbarLink>
+                <MDBNavbarLink 
+                  href='#'
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/dashboard');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Tasks
+                </MDBNavbarLink>
               </MDBNavbarItem>
               <MDBNavbarItem className='me-4'>
-                <MDBNavbarLink href='#'>Analytics</MDBNavbarLink>
+                <MDBNavbarLink 
+                  href='#'
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/dashboard');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Analytics
+                </MDBNavbarLink>
               </MDBNavbarItem>
             </MDBNavbarNav>
 
@@ -100,10 +146,19 @@ export default function Navbar() {
                 </MDBDropdown>
               ) : (
                 <div className='d-flex gap-2'>
-                  <MDBBtn color='primary' size='sm' href='/login' outline>
+                  <MDBBtn 
+                    color='primary' 
+                    size='sm' 
+                    outline
+                    onClick={() => navigate('/login')}
+                  >
                     Login
                   </MDBBtn>
-                  <MDBBtn color='primary' size='sm' href='/register'>
+                  <MDBBtn 
+                    color='primary' 
+                    size='sm'
+                    onClick={() => navigate('/register')}
+                  >
                     Register
                   </MDBBtn>
                 </div>
