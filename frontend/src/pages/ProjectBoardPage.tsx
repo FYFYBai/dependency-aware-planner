@@ -121,12 +121,11 @@ function TaskSection({
   const updateTaskMutation = useMutation({
     mutationFn: (task: Task) =>
       updateTask(task.id, {
-        // send only fields that may change during edit
+        id: task.id,
         name: task.name,
         description: task.description ?? undefined,
         startDate: task.startDate ?? undefined,
         dueDate: task.dueDate ?? undefined,
-        // keep list/position stable when editing
         listId: list.id,
         position: task.position ?? undefined,
       }),
@@ -421,6 +420,15 @@ export default function ProjectBoardPage() {
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
   });
 
+  // central mutation for drag-and-drop task updates
+  const updateTaskMutation = useMutation({
+    mutationFn: (payload: { id: number; data: Partial<Task> }) =>
+      updateTask(payload.id, payload.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
+    },
+  });
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || !lists) return;
@@ -442,7 +450,9 @@ export default function ProjectBoardPage() {
         ...l,
         position: i,
       }));
+      // optimistic cache update
       queryClient.setQueryData<BoardList[]>(["lists", projectId], reordered);
+      // persist new positions
       reordered.forEach((list, index) => {
         updateList(list.id, list.name, index);
       });
@@ -488,8 +498,7 @@ export default function ProjectBoardPage() {
         ? [...sourceTasks]
         : [...targetList.tasks];
 
-    // if same list, use arrayMove
-    // if same list, reorder with arrayMove
+    // same list reorder
     if (sourceList.id === targetList.id) {
       const reordered = arrayMove(
         [...sourceList.tasks],
@@ -502,12 +511,18 @@ export default function ProjectBoardPage() {
       );
       queryClient.setQueryData<BoardList[]>(["lists", projectId], optimistic);
 
-      // persist
       reordered.forEach((t, i) => {
-        updateTask(t.id, {
-          ...t,
-          position: i,
-          listId: sourceList.id,
+        updateTaskMutation.mutate({
+          id: t.id,
+          data: {
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            startDate: t.startDate,
+            dueDate: t.dueDate,
+            listId: sourceList.id,
+            position: i,
+          },
         });
       });
       return;
@@ -532,10 +547,32 @@ export default function ProjectBoardPage() {
 
     // persist positions for both lists
     sourceTasks.forEach((t, i) => {
-      updateTask(t.id, { position: i, listId: sourceList.id });
+      updateTaskMutation.mutate({
+        id: t.id,
+        data: {
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          startDate: t.startDate,
+          dueDate: t.dueDate,
+          listId: sourceList.id,
+          position: i,
+        },
+      });
     });
     targetTasks.forEach((t, i) => {
-      updateTask(t.id, { position: i, listId: targetList!.id });
+      updateTaskMutation.mutate({
+        id: t.id,
+        data: {
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          startDate: t.startDate,
+          dueDate: t.dueDate,
+          listId: targetList!.id,
+          position: i,
+        },
+      });
     });
   };
 
