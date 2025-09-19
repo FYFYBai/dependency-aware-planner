@@ -27,6 +27,11 @@ export interface BoardList {
 }
 
 /* ---------------------- Projects ---------------------- */
+export const getAllProjects = async (): Promise<Project[]> => {
+  const res = await api.get<Project[]>('/projects');
+  return res.data;
+};
+
 export const getProject = async (projectId: number): Promise<Project> => {
   const res = await api.get<Project>(`/projects/${projectId}`);
   return res.data;
@@ -78,6 +83,7 @@ export const createTask = async (
 export const updateTask = async (id: number, task: Partial<Task>) => {
   // Directly send TaskDto shape
   const res = await api.put<Task>(`/tasks/${id}`, task);
+
   return res.data;
 };
 
