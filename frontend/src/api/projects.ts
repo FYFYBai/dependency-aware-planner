@@ -76,7 +76,7 @@ export const createTask = async (
   }
 ) => {
   // Wrap listId for backend
-  const res = await api.post<Task>(`/tasks`, { ...task, list: { id: listId } });
+  const res = await api.post<Task>(`/tasks`, { ...task, listId });
   return res.data;
 };
 

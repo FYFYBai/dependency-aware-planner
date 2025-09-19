@@ -25,20 +25,33 @@ public class TaskService {
     }
 
     public TaskDto create(TaskDto dto) {
-        Task task = new Task();
-        task.setName(dto.getName());
-        task.setDescription(dto.getDescription());
-        task.setStartDate(dto.getStartDate());
-        task.setDueDate(dto.getDueDate());
-        task.setPosition(dto.getPosition());
+    Task task = new Task();
+    task.setName(dto.getName());
+    task.setDescription(dto.getDescription());
+    task.setStartDate(dto.getStartDate());
+    task.setDueDate(dto.getDueDate());
 
+    // Handle position default
+    if (dto.getPosition() != null) {
+            task.setPosition(dto.getPosition());
+        } else if (dto.getListId() != null) {
+            Integer maxPosition = taskRepo.findMaxPositionByListId(dto.getListId());
+            task.setPosition(maxPosition == null ? 0 : maxPosition + 1);
+        } else {
+            task.setPosition(0);
+        }
+
+        // make sure list is attached
         if (dto.getListId() != null) {
             BoardList list = listRepo.findById(dto.getListId())
                 .orElseThrow(() -> new RuntimeException("List not found"));
             task.setList(list);
+        } else {
+            throw new IllegalArgumentException("Task must belong to a list");
         }
 
-        return ProjectMapper.toDto(taskRepo.save(task));
+        Task saved = taskRepo.save(task);
+        return ProjectMapper.toDto(saved);
     }
 
 
