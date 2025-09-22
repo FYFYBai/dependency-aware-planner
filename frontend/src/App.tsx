@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContextProvider";
 import LoginPage from "./pages/LoginPage";
 import RegistrationPage from "./pages/RegistrationPage";
+import EmailVerificationPage from "./pages/EmailVerificationPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -32,6 +33,7 @@ function App() {
           />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegistrationPage />} />
+          <Route path="/verify-email" element={<EmailVerificationPage />} />
           <Route
             path="/projects/:projectId"
             element={

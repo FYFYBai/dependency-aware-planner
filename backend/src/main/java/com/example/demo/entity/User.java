@@ -44,6 +44,12 @@ public class User implements UserDetails {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
+    @Column(name = "email_verified", nullable = false)
+    private Boolean emailVerified = false;
+    
+    @Column(name = "verification_token", length = 255)
+    private String verificationToken;
+    
     // UserDetails implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -78,6 +84,6 @@ public class User implements UserDetails {
     
     @Override
     public boolean isEnabled() {
-        return true;
+        return emailVerified;
     }
 }
