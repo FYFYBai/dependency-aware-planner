@@ -99,20 +99,6 @@ export default function Navbar() {
                   Tasks
                 </MDBNavbarLink>
               </MDBNavbarItem>
-              <MDBNavbarItem className='me-4'>
-                <MDBNavbarLink 
-                  active={location.pathname === '/projects'}
-                  aria-current={location.pathname === '/projects' ? 'page' : undefined}
-                  href='#'
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate('/projects');
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  View Projects
-                </MDBNavbarLink>
-              </MDBNavbarItem>
             </MDBNavbarNav>
 
             {/* Right side - User Menu only */}
