@@ -25,9 +25,9 @@ const RegistrationPage: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const { register } = useAuth();
-  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -87,8 +87,8 @@ const RegistrationPage: React.FC = () => {
         email: formData.email,
         password: formData.password
       });
-      // Redirect to login page after successful registration
-      navigate('/login');
+      // Show success message instead of redirecting
+      setRegistrationSuccess(true);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
       setGeneralError(errorMessage);
@@ -97,13 +97,6 @@ const RegistrationPage: React.FC = () => {
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
-  };
 
   return (
     <MDBContainer fluid>
@@ -120,7 +113,20 @@ const RegistrationPage: React.FC = () => {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit}>
+              {registrationSuccess && (
+                <div className="alert alert-success" role="alert">
+                  <div className="d-flex align-items-center">
+                    <MDBIcon icon="envelope" className="me-2" />
+                    <div>
+                      <strong>Registration successful!</strong><br />
+                      Please check your email for a verification link. You must verify your email before you can log in.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!registrationSuccess && (
+                <form onSubmit={handleSubmit}>
                 <MDBInput 
                   wrapperClass='mb-4 w-100' 
                   label='Email address' 
@@ -184,7 +190,8 @@ const RegistrationPage: React.FC = () => {
                 >
                   {isLoading ? 'Creating account...' : 'Register'}
                 </MDBBtn>
-              </form>
+                </form>
+              )}
 
               <hr className="my-4" />
 
