@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/client";
+import {
+  MDBBtn,
+  MDBContainer,
+  MDBRow,
+  MDBCol,
+  MDBCard,
+  MDBCardBody,
+  MDBIcon
+} from 'mdb-react-ui-kit';
 
 const EmailVerificationPage = () => {
   const [searchParams] = useSearchParams();
@@ -115,72 +124,106 @@ const EmailVerificationPage = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            {status === 'verifying' && 'Verifying Email...'}
-            {status === 'success' && 'Email Verified!'}
-            {status === 'error' && 'Verification Failed'}
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            {message}
-          </p>
-        </div>
+    <MDBContainer fluid>
+      <MDBRow className='d-flex justify-content-center align-items-center h-100'>
+        <MDBCol col='12'>
+          <MDBCard className='bg-white my-5 mx-auto' style={{borderRadius: '1rem', maxWidth: '500px'}}>
+            <MDBCardBody className='p-5 w-100 d-flex flex-column'>
+              <h2 className="fw-bold mb-2 text-center">
+                {status === 'verifying' && 'Verifying Email...'}
+                {status === 'success' && 'Email Verified!'}
+                {status === 'error' && 'Verification Failed'}
+              </h2>
+              <p className="text-muted mb-3 text-center">
+                {message}
+              </p>
 
-        {status === 'success' && (
-          <div className="mt-6">
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+              {status === 'verifying' && (
+                <div className="text-center">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <p className="mt-3 text-muted">Please wait while we verify your email...</p>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-green-800">
-                    Your email has been successfully verified! You will be redirected to the login page shortly.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+              )}
 
-        {status === 'error' && (
-          <div className="mt-6">
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+              {status === 'success' && (
+                <div className="mt-4">
+                  <div className="alert alert-success" role="alert">
+                    <div className="d-flex align-items-center">
+                      <MDBIcon icon="check-circle" className="text-success me-3" size="lg" />
+                      <div>
+                        <strong>Verification Successful!</strong><br />
+                        Your email has been successfully verified. You will be redirected to the login page shortly.
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 text-center">
+                    <MDBBtn 
+                      color="success" 
+                      size="lg" 
+                      className="w-100 mb-3"
+                      onClick={() => navigate('/login')}
+                    >
+                      Go to Login
+                    </MDBBtn>
+                    <p className="text-muted small">
+                      Redirecting automatically in a few seconds...
+                    </p>
+                  </div>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-red-800">
-                    {message}
-                  </p>
+              )}
+
+              {status === 'error' && (
+                <div className="mt-4">
+                  <div className="alert alert-danger" role="alert">
+                    <div className="d-flex align-items-center">
+                      <MDBIcon icon="exclamation-triangle" className="text-danger me-3" size="lg" />
+                      <div>
+                        <strong>Verification Failed</strong><br />
+                        {message}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <MDBBtn 
+                      color="success" 
+                      size="lg" 
+                      className="w-100 mb-3"
+                      onClick={() => navigate('/register')}
+                    >
+                      Try Registering Again
+                    </MDBBtn>
+                    <MDBBtn 
+                      color="primary" 
+                      size="lg" 
+                      className="w-100 mb-3"
+                      outline
+                      onClick={() => navigate('/login')}
+                    >
+                      Go to Login
+                    </MDBBtn>
+                  </div>
                 </div>
+              )}
+
+              <hr className="my-4" />
+
+              <div className="text-center">
+                <p className="mb-0">
+                  Need help?{' '}
+                  <Link to="/contact" className="text-primary fw-bold">
+                    Contact Support
+                  </Link>
+                </p>
               </div>
-            </div>
-             <div className="mt-4 space-y-3">
-               <button
-                 onClick={() => navigate('/register')}
-                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-               >
-                 Try Registering Again
-               </button>
-               <button
-                 onClick={() => navigate('/login')}
-                 className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-               >
-                 Go to Login
-               </button>
-             </div>
-          </div>
-        )}
-      </div>
-    </div>
+            </MDBCardBody>
+          </MDBCard>
+        </MDBCol>
+      </MDBRow>
+    </MDBContainer>
   );
 };
 
