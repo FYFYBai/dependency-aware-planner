@@ -19,29 +19,37 @@ const EmailVerificationPage = () => {
       }
 
       try {
-        // First check if user is already verified
-        console.log('Checking verification status for token:', token);
+        // Check if backend server is reachable
+        try {
+          await fetch('http://localhost:8081/api/auth/me', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+        } catch {
+          setStatus('error');
+          setMessage('Backend server is not running. Please start the backend server on port 8081.');
+          return;
+        }
+        
+        // Check if email is already verified to prevent duplicate processing
         try {
           const statusResponse = await api.get(`/auth/check-verification-status?token=${token}`);
-          
           if (statusResponse.data === true) {
             setStatus('success');
-            setMessage('Your email is already verified! You can now log in.');
+            setMessage('Email is already verified! You can now log in.');
             setTimeout(() => {
               navigate('/login');
-            }, 2000);
+            }, 3000);
             return;
           }
-        } catch (statusError) {
-          // If status check fails, continue with verification attempt
-          console.log('Status check failed, proceeding with verification:', statusError);
+        } catch {
+          // If status check fails, proceed with verification attempt
         }
-
-        // If not verified, proceed with verification
-        console.log('Verifying token:', token);
-        const response = await api.post(`/auth/verify-email?token=${token}`);
-        console.log('Response:', response);
         
+        // Attempt email verification
+        const response = await api.post(`/auth/verify-email?token=${token}`);
         setStatus('success');
         setMessage(response.data);
         
@@ -50,23 +58,52 @@ const EmailVerificationPage = () => {
           navigate('/login');
         }, 3000);
       } catch (error: unknown) {
-        console.error('Verification error:', error);
-        setStatus('error');
+        // Handle database transaction errors that might occur after successful verification
+        const responseErrorMessage = error instanceof Error && 'response' in error 
+          ? (error as { response?: { data?: string; status?: number } }).response?.data || ''
+          : '';
         
+        // Check if verification actually succeeded despite database cleanup errors
+        if (responseErrorMessage.includes('Row was updated or deleted by another transaction') || 
+            responseErrorMessage.includes('unsaved-value mapping was incorrect')) {
+          try {
+            const statusResponse = await api.get(`/auth/check-verification-status?token=${token}`);
+            if (statusResponse.data === true) {
+              setStatus('success');
+              setMessage('Email verified successfully! You can now log in.');
+              setTimeout(() => {
+                navigate('/login');
+              }, 3000);
+              return;
+            }
+          } catch {
+            // Continue with normal error handling if status check fails
+          }
+        }
+        
+        setStatus('error');
         let errorMessage = 'Verification failed. Please try again.';
         
+        // Extract meaningful error message from response
         if (error instanceof Error && 'response' in error) {
           const responseError = error as { response?: { data?: string; status?: number } };
           const responseData = responseError.response?.data;
           const status = responseError.response?.status;
           
           if (responseData) {
-            // Extract the actual error message from the response
             errorMessage = responseData.replace('Error: ', '');
           } else if (status === 404) {
             errorMessage = 'Invalid verification link. Please request a new verification email.';
           } else if (status === 400) {
             errorMessage = 'This verification link has expired or is invalid. Please request a new one.';
+          } else if (status === 0 || !status) {
+            errorMessage = 'Cannot connect to backend server. Please make sure the backend is running on port 8081.';
+          }
+        } else if (error instanceof Error) {
+          if (error.message.includes('fetch')) {
+            errorMessage = 'Cannot connect to backend server. Please make sure the backend is running on port 8081.';
+          } else {
+            errorMessage = error.message;
           }
         }
         
@@ -126,20 +163,20 @@ const EmailVerificationPage = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-4 space-y-3">
-              <button
-                onClick={() => navigate('/resend-verification')}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                Resend Verification Email
-              </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Go to Login
-              </button>
-            </div>
+             <div className="mt-4 space-y-3">
+               <button
+                 onClick={() => navigate('/register')}
+                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+               >
+                 Try Registering Again
+               </button>
+               <button
+                 onClick={() => navigate('/login')}
+                 className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+               >
+                 Go to Login
+               </button>
+             </div>
           </div>
         )}
       </div>

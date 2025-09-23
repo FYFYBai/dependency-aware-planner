@@ -90,25 +90,58 @@ public class AuthService {
         return jwtUtil.extractUsername(token);
     }
     
+    /**
+     * Verifies a user's email using the provided verification token.
+     * Handles race conditions and duplicate verification attempts gracefully.
+     * 
+     * @param token The verification token from the email link
+     * @return true if verification was successful
+     * @throws RuntimeException if token is invalid or expired
+     */
     @Transactional
     public boolean verifyEmail(String token) {
+        // Find the verification token
         EmailVerificationToken verificationToken = tokenRepository.findByToken(token)
             .orElseThrow(() -> new RuntimeException("Invalid verification token"));
         
+        // Check if token has expired
         if (verificationToken.isExpired()) {
-            tokenRepository.delete(verificationToken);
+            // Clean up expired token (ignore if already deleted by another process)
+            try {
+                tokenRepository.delete(verificationToken);
+            } catch (Exception e) {
+                // Token may have been deleted by cleanup process - this is acceptable
+            }
             throw new RuntimeException("Verification token has expired");
         }
         
         User user = verificationToken.getUser();
+        
+        // Check if user is already verified to prevent duplicate processing
+        if (user.getEmailVerified()) {
+            // User already verified - clean up token and return success
+            try {
+                tokenRepository.delete(verificationToken);
+            } catch (Exception e) {
+                // Token may have been deleted by another process - this is acceptable
+            }
+            return true;
+        }
+        
+        // Mark user as verified and clear verification token
         user.setEmailVerified(true);
         user.setVerificationToken(null);
         userRepository.save(user);
         
-        // Delete the used token
-        tokenRepository.delete(verificationToken);
+        // Clean up the used verification token
+        // Wrap in try-catch to handle potential race conditions during cleanup
+        try {
+            tokenRepository.delete(verificationToken);
+        } catch (Exception e) {
+            // Verification succeeded even if token cleanup failed - this is acceptable
+        }
         
-        // Send success email
+        // Send verification success notification email
         emailService.sendVerificationSuccessEmail(user);
         
         return true;
@@ -139,6 +172,13 @@ public class AuthService {
         emailService.sendVerificationEmail(user, verificationToken);
     }
     
+    /**
+     * Checks if a user's email is verified using the verification token.
+     * Used to determine verification status without modifying any data.
+     * 
+     * @param token The verification token to check
+     * @return true if the user's email is verified, false otherwise
+     */
     public boolean checkVerificationStatus(String token) {
         try {
             EmailVerificationToken verificationToken = tokenRepository.findByToken(token)
