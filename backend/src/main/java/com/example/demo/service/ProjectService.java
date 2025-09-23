@@ -22,6 +22,12 @@ public class ProjectService {
                 .toList();
     }
 
+    public List<ProjectDto> getByOwner(User owner) {
+        return projectRepo.findByOwner(owner).stream()
+                .map(ProjectMapper::toDto)
+                .toList();
+    }
+
     public ProjectDto create(ProjectDto dto, User owner) {
         Project project = new Project();
         project.setName(dto.getName());
@@ -35,6 +41,12 @@ public class ProjectService {
                 .orElseThrow(() -> new RuntimeException("Project not found with id " + id));
         return ProjectMapper.toDto(project);
     }
+
+    public ProjectDto getByIdAndOwner(Long id, User owner) {
+        Project project = projectRepo.findByIdAndOwner(id, owner)
+                .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
+        return ProjectMapper.toDto(project);
+    }
     
     public ProjectDto update(Long id, ProjectDto dto) {
         Project project = projectRepo.findById(id)
@@ -44,7 +56,21 @@ public class ProjectService {
         return ProjectMapper.toDto(projectRepo.save(project));
     }
 
+    public ProjectDto updateByIdAndOwner(Long id, ProjectDto dto, User owner) {
+        Project project = projectRepo.findByIdAndOwner(id, owner)
+                .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
+        project.setName(dto.getName());
+        project.setDescription(dto.getDescription());
+        return ProjectMapper.toDto(projectRepo.save(project));
+    }
+
     public void delete(Long id) {
         projectRepo.deleteById(id);
+    }
+
+    public void deleteByIdAndOwner(Long id, User owner) {
+        Project project = projectRepo.findByIdAndOwner(id, owner)
+                .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
+        projectRepo.delete(project);
     }
 }

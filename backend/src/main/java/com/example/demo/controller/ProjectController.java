@@ -20,8 +20,11 @@ public class ProjectController {
     private final UserRepository userRepo;
 
     @GetMapping
-    public List<ProjectDto> getAll() {
-        return projectService.getAll();
+    public List<ProjectDto> getAll(Authentication auth) {
+        String username = auth.getName(); // from JWT principal
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return projectService.getByOwner(user);
     }
 
     @PostMapping
@@ -34,19 +37,27 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProjectDto> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(projectService.getById(id));
+    public ResponseEntity<ProjectDto> getById(@PathVariable Long id, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(projectService.getByIdAndOwner(id, user));
     }
 
-
     @PutMapping("/{id}")
-    public ProjectDto update(@PathVariable Long id, @RequestBody ProjectDto dto) {
-        return projectService.update(id, dto);
+    public ProjectDto update(@PathVariable Long id, @RequestBody ProjectDto dto, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return projectService.updateByIdAndOwner(id, dto, user);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        projectService.delete(id);
+    public void delete(@PathVariable Long id, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        projectService.deleteByIdAndOwner(id, user);
     }
 }
 
