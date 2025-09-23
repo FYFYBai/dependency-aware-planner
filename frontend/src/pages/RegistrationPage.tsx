@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   MDBBtn,
@@ -9,7 +9,6 @@ import {
   MDBCard,
   MDBCardBody,
   MDBInput,
-  MDBIcon,
   MDBCheckbox
 } from 'mdb-react-ui-kit';
 
@@ -20,8 +19,6 @@ const RegistrationPage: React.FC = () => {
     confirmPassword: ''
   });
   const [rememberMe, setRememberMe] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
@@ -116,10 +113,9 @@ const RegistrationPage: React.FC = () => {
               {registrationSuccess && (
                 <div className="alert alert-success" role="alert">
                   <div className="d-flex align-items-center">
-                    <MDBIcon icon="envelope" className="me-2" />
                     <div>
                       <strong>Registration successful!</strong><br />
-                      Please check your email for a verification link. You must verify your email before you can log in.
+                      A verification link has been sent to your email. Please check your inbox and click the link to verify your account before logging in.
                     </div>
                   </div>
                 </div>
@@ -145,7 +141,7 @@ const RegistrationPage: React.FC = () => {
                   wrapperClass='mb-4 w-100' 
                   label='Create Password' 
                   id='password' 
-                  type={showPassword ? 'text' : 'password'} 
+                  type='password'
                   size="lg"
                   value={formData.password}
                   onChange={handleInputChange}
@@ -159,7 +155,7 @@ const RegistrationPage: React.FC = () => {
                   wrapperClass='mb-4 w-100' 
                   label='Confirm Password' 
                   id='confirmPassword' 
-                  type={showConfirmPassword ? 'text' : 'password'} 
+                  type='password'
                   size="lg"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}

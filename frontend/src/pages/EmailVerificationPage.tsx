@@ -19,7 +19,29 @@ const EmailVerificationPage = () => {
       }
 
       try {
+        // First check if user is already verified
+        console.log('Checking verification status for token:', token);
+        try {
+          const statusResponse = await api.get(`/auth/check-verification-status?token=${token}`);
+          
+          if (statusResponse.data === true) {
+            setStatus('success');
+            setMessage('Your email is already verified! You can now log in.');
+            setTimeout(() => {
+              navigate('/login');
+            }, 2000);
+            return;
+          }
+        } catch (statusError) {
+          // If status check fails, continue with verification attempt
+          console.log('Status check failed, proceeding with verification:', statusError);
+        }
+
+        // If not verified, proceed with verification
+        console.log('Verifying token:', token);
         const response = await api.post(`/auth/verify-email?token=${token}`);
+        console.log('Response:', response);
+        
         setStatus('success');
         setMessage(response.data);
         
@@ -28,10 +50,26 @@ const EmailVerificationPage = () => {
           navigate('/login');
         }, 3000);
       } catch (error: unknown) {
+        console.error('Verification error:', error);
         setStatus('error');
-        const errorMessage = error instanceof Error && 'response' in error 
-          ? (error as any).response?.data || 'Verification failed. Please try again.'
-          : 'Verification failed. Please try again.';
+        
+        let errorMessage = 'Verification failed. Please try again.';
+        
+        if (error instanceof Error && 'response' in error) {
+          const responseError = error as { response?: { data?: string; status?: number } };
+          const responseData = responseError.response?.data;
+          const status = responseError.response?.status;
+          
+          if (responseData) {
+            // Extract the actual error message from the response
+            errorMessage = responseData.replace('Error: ', '');
+          } else if (status === 404) {
+            errorMessage = 'Invalid verification link. Please request a new verification email.';
+          } else if (status === 400) {
+            errorMessage = 'This verification link has expired or is invalid. Please request a new one.';
+          }
+        }
+        
         setMessage(errorMessage);
       }
     };
@@ -43,21 +81,6 @@ const EmailVerificationPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
-            {status === 'verifying' && (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            )}
-            {status === 'success' && (
-              <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            )}
-            {status === 'error' && (
-              <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            )}
-          </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             {status === 'verifying' && 'Verifying Email...'}
             {status === 'success' && 'Email Verified!'}
@@ -103,10 +126,16 @@ const EmailVerificationPage = () => {
                 </div>
               </div>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 space-y-3">
+              <button
+                onClick={() => navigate('/resend-verification')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                Resend Verification Email
+              </button>
               <button
                 onClick={() => navigate('/login')}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Go to Login
               </button>

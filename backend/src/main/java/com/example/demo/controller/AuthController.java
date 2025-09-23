@@ -84,6 +84,16 @@ public class AuthController {
         }
     }
     
+    @GetMapping("/check-verification-status")
+    public ResponseEntity<?> checkVerificationStatus(@RequestParam("token") String token) {
+        try {
+            boolean isVerified = authService.checkVerificationStatus(token);
+            return ResponseEntity.ok(isVerified);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+    
     @PostMapping("/resend-verification")
     public ResponseEntity<?> resendVerificationEmail(@Valid @RequestBody ResendVerificationRequest request) {
         try {

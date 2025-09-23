@@ -138,4 +138,20 @@ public class AuthService {
         // Send verification email
         emailService.sendVerificationEmail(user, verificationToken);
     }
+    
+    public boolean checkVerificationStatus(String token) {
+        try {
+            EmailVerificationToken verificationToken = tokenRepository.findByToken(token)
+                .orElse(null);
+            
+            if (verificationToken == null) {
+                return false;
+            }
+            
+            User user = verificationToken.getUser();
+            return user.getEmailVerified();
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
