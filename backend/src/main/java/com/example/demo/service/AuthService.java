@@ -119,12 +119,9 @@ public class AuthService {
         
         // Check if user is already verified to prevent duplicate processing
         if (user.getEmailVerified()) {
-            // User already verified - clean up token and return success
-            try {
-                tokenRepository.delete(verificationToken);
-            } catch (Exception e) {
-                // Token may have been deleted by another process - this is acceptable
-            }
+            // User already verified - mark token as used and return success
+            verificationToken.setUsed(true);
+            tokenRepository.save(verificationToken);
             return true;
         }
         
@@ -133,13 +130,9 @@ public class AuthService {
         user.setVerificationToken(null);
         userRepository.save(user);
         
-        // Clean up the used verification token
-        // Wrap in try-catch to handle potential race conditions during cleanup
-        try {
-            tokenRepository.delete(verificationToken);
-        } catch (Exception e) {
-            // Verification succeeded even if token cleanup failed - this is acceptable
-        }
+        // Mark token as used instead of deleting it immediately
+        verificationToken.setUsed(true);
+        tokenRepository.save(verificationToken);
         
         // Send verification success notification email
         emailService.sendVerificationSuccessEmail(user);
@@ -185,6 +178,11 @@ public class AuthService {
                 .orElse(null);
             
             if (verificationToken == null) {
+                return false;
+            }
+            
+            // Check if token is expired
+            if (verificationToken.isExpired()) {
                 return false;
             }
             

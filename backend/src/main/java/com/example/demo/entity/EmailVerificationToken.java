@@ -38,10 +38,14 @@ public class EmailVerificationToken {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
     
+    @Column(name = "used", nullable = false)
+    private boolean used = false;
+    
     public EmailVerificationToken(String token, User user, LocalDateTime expiresAt) {
         this.token = token;
         this.user = user;
         this.expiresAt = expiresAt;
+        this.used = false;
     }
     
     public boolean isExpired() {
