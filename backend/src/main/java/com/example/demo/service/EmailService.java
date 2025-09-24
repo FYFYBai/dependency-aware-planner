@@ -7,6 +7,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.entity.User;
+import com.example.demo.entity.ProjectInvitation;
 
 @Service
 public class EmailService {
@@ -53,6 +54,45 @@ public class EmailService {
             "Best regards,\n" +
             "Dependency Aware Planner Team"
         );
+        
+        mailSender.send(message);
+    }
+    
+    public void sendProjectInvitationEmail(ProjectInvitation invitation) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(invitation.getInvitedEmail());
+        message.setSubject("Project Collaboration Invitation: " + invitation.getProject().getName());
+        
+        String invitationUrl = frontendUrl + "/invitation?token=" + invitation.getToken();
+        
+        message.setText("""
+            Hello,
+            
+            You have been invited to collaborate on the project "%s" by %s.
+            
+            Project Description: %s
+            
+            Your role will be: %s
+            
+            To accept or decline this invitation, please click the link below:
+            
+            %s
+            
+            This invitation will expire on %s.
+            
+            If you don't have an account yet, you'll need to register first before accepting the invitation.
+            
+            Best regards,
+            Dependency Aware Planner Team
+            """.formatted(
+                invitation.getProject().getName(),
+                invitation.getInvitedBy().getUsername(),
+                invitation.getProject().getDescription(),
+                invitation.getRole(),
+                invitationUrl,
+                invitation.getExpiresAt()
+            ));
         
         mailSender.send(message);
     }
