@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   MDBContainer,
@@ -12,56 +12,56 @@ import {
 } from "mdb-react-ui-kit";
 import { CheckCircle, XCircle, Users, Clock } from "lucide-react";
 import { acceptInvitation, declineInvitation } from "../api/projects";
-import { useAuth } from "../hooks/useAuth";
 
-interface InvitationResponseRequest {
-  token: string;
-  response: string;
-}
 
 export default function InvitationResponsePage() {
-  const { token } = useParams<{ token: string }>();
+  const { token: invitationId } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [response, setResponse] = useState<"accept" | "decline" | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const acceptMutation = useMutation({
-    mutationFn: (token: string) => acceptInvitation(token),
+    mutationFn: (invitationId: string) => acceptInvitation(invitationId),
     onSuccess: () => {
       setIsProcessing(false);
       setResponse("accept");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setIsProcessing(false);
       console.error("Failed to accept invitation:", error);
-      alert(`Failed to accept invitation: ${error.response?.data?.message || error.message || 'Unknown error'}`);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Unknown error'
+        : 'Unknown error';
+      alert(`Failed to accept invitation: ${errorMessage}`);
     },
   });
 
   const declineMutation = useMutation({
-    mutationFn: (token: string) => declineInvitation(token),
+    mutationFn: (invitationId: string) => declineInvitation(invitationId),
     onSuccess: () => {
       setIsProcessing(false);
       setResponse("decline");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setIsProcessing(false);
       console.error("Failed to decline invitation:", error);
-      alert(`Failed to decline invitation: ${error.response?.data?.message || error.message || 'Unknown error'}`);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Unknown error'
+        : 'Unknown error';
+      alert(`Failed to decline invitation: ${errorMessage}`);
     },
   });
 
   const handleAccept = () => {
-    if (!token) return;
+    if (!invitationId) return;
     setIsProcessing(true);
-    acceptMutation.mutate(token);
+    acceptMutation.mutate(invitationId);
   };
 
   const handleDecline = () => {
-    if (!token) return;
+    if (!invitationId) return;
     setIsProcessing(true);
-    declineMutation.mutate(token);
+    declineMutation.mutate(invitationId);
   };
 
   const handleContinue = () => {
@@ -72,7 +72,7 @@ export default function InvitationResponsePage() {
     }
   };
 
-  if (!token) {
+  if (!invitationId) {
     return (
       <div className="min-h-screen d-flex align-items-center justify-content-center" style={{ background: "#f8f9fa" }}>
         <MDBContainer className="text-center">

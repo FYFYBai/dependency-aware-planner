@@ -1,16 +1,26 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.*;
-import com.example.demo.entity.*;
-import com.example.demo.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.example.demo.dto.InviteUserRequest;
+import com.example.demo.dto.ProjectCollaboratorDto;
+import com.example.demo.dto.ProjectInvitationDto;
+import com.example.demo.entity.Project;
+import com.example.demo.entity.ProjectCollaborator;
+import com.example.demo.entity.ProjectInvitation;
+import com.example.demo.entity.Role;
+import com.example.demo.entity.User;
+import com.example.demo.repository.ProjectCollaboratorRepository;
+import com.example.demo.repository.ProjectInvitationRepository;
+import com.example.demo.repository.ProjectRepository;
+import com.example.demo.repository.UserRepository;
 
 /**
  * Handles all project collaboration operations including invitations,
@@ -200,5 +210,64 @@ public class ProjectCollaborationService {
             invitation.setStatus(ProjectInvitation.InvitationStatus.EXPIRED);
             invitationRepository.save(invitation);
         }
+    }
+    
+    /**
+     * Validate invitation token (for public access)
+     */
+    public ProjectInvitation validateInvitationToken(String token) {
+        ProjectInvitation invitation = invitationRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid invitation token"));
+        
+        if (!invitation.isPending()) {
+            throw new RuntimeException("Invitation is no longer valid");
+        }
+        
+        return invitation;
+    }
+    
+    /**
+     * Accept invitation using invitation ID (for public access)
+     */
+    public ProjectCollaboratorDto acceptInvitationById(Long invitationId) {
+        ProjectInvitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new RuntimeException("Invalid invitation ID"));
+        
+        if (!invitation.isPending()) {
+            throw new RuntimeException("Invitation is no longer valid");
+        }
+        
+        // Find user by email from the invitation
+        User user = userRepository.findByEmail(invitation.getInvitedEmail())
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + invitation.getInvitedEmail()));
+        
+        // Check if user is already a collaborator
+        if (collaboratorRepository.existsByProjectAndUser(invitation.getProject(), user)) {
+            throw new RuntimeException("User is already a collaborator on this project");
+        }
+        
+        invitation.accept();
+        invitationRepository.save(invitation);
+        ProjectCollaborator collaborator = new ProjectCollaborator(
+                invitation.getProject(), user, invitation.getInvitedBy(), invitation.getRole()
+        );
+        collaborator = collaboratorRepository.save(collaborator);
+        
+        return ProjectCollaboratorDto.fromEntity(collaborator);
+    }
+    
+    /**
+     * Decline invitation using invitation ID (for public access)
+     */
+    public void declineInvitationById(Long invitationId) {
+        ProjectInvitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new RuntimeException("Invalid invitation ID"));
+        
+        if (!invitation.isPending()) {
+            throw new RuntimeException("Invitation is no longer valid");
+        }
+        
+        invitation.decline();
+        invitationRepository.save(invitation);
     }
 }
