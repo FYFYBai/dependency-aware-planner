@@ -20,11 +20,18 @@ import {
   deleteList,
   updateTask,
   deleteTask,
+  getProjectCollaborators,
+  getProjectInvitations,
+  inviteUserToProject,
+  removeCollaborator,
   type Project,
   type BoardList,
   type Task,
+  type ProjectCollaborator,
+  type ProjectInvitation,
+  type InviteUserRequest,
 } from "../api/projects";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Users, UserPlus, X } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -317,6 +324,211 @@ function TaskSection({
   );
 }
 
+/* ---------------- Collaboration Management ---------------- */
+function CollaborationPanel({ projectId }: { projectId: number }) {
+  const queryClient = useQueryClient();
+  const [showPanel, setShowPanel] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("member");
+  const [error, setError] = useState("");
+
+  const { data: collaborators } = useQuery<ProjectCollaborator[]>({
+    queryKey: ["collaborators", projectId],
+    queryFn: () => getProjectCollaborators(projectId),
+    enabled: showPanel,
+  });
+
+  const { data: invitations } = useQuery<ProjectInvitation[]>({
+    queryKey: ["invitations", projectId],
+    queryFn: () => getProjectInvitations(projectId),
+    enabled: showPanel,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (request: InviteUserRequest) => inviteUserToProject(projectId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invitations", projectId] });
+      setInviteEmail("");
+      setInviteRole("member");
+      setShowInviteForm(false);
+      setError("");
+    },
+    onError: (error: unknown) => {
+      let errorMessage = "Failed to send invitation";
+      if (error && typeof error === 'object' && 'response' in error) {
+        const responseError = error as { response?: { data?: { message?: string } } };
+        errorMessage = responseError.response?.data?.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      setError(errorMessage);
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (userId: number) => removeCollaborator(projectId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["collaborators", projectId] });
+    },
+  });
+
+  const handleInvite = () => {
+    if (!inviteEmail.trim()) {
+      setError("Email is required");
+      return;
+    }
+    setError("");
+    inviteMutation.mutate({
+      email: inviteEmail.trim(),
+      role: inviteRole,
+      expirationHours: 168,
+    });
+  };
+
+  if (!showPanel) {
+    return (
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="btn btn-outline-primary btn-sm mb-3"
+        onClick={() => setShowPanel(true)}
+      >
+        <Users size={16} className="me-2" />
+        Manage Collaboration
+      </motion.button>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-4 p-3 bg-white border rounded shadow-sm"
+    >
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="mb-0">
+          <Users size={20} className="me-2" />
+          Collaboration
+        </h5>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => setShowPanel(false)}
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Invite Form */}
+      {showInviteForm ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-3 p-3 bg-light border rounded"
+        >
+          <h6 className="mb-3">Invite New Collaborator</h6>
+          <MDBInput
+            label="Email Address *"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            className="mb-2"
+          />
+          <div className="mb-2">
+            <label className="form-label">Role</label>
+            <select
+              className="form-select"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          {error && <div className="text-danger mb-2">{error}</div>}
+          <div className="d-flex gap-2">
+            <MDBBtn size="sm" onClick={handleInvite} disabled={inviteMutation.isPending}>
+              {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
+            </MDBBtn>
+            <MDBBtn outline size="sm" onClick={() => setShowInviteForm(false)}>
+              Cancel
+            </MDBBtn>
+          </div>
+        </motion.div>
+      ) : (
+        <MDBBtn
+          size="sm"
+          className="mb-3"
+          onClick={() => setShowInviteForm(true)}
+        >
+          <UserPlus size={16} className="me-2" />
+          Invite Collaborator
+        </MDBBtn>
+      )}
+
+      {/* Collaborators List */}
+      <div className="mb-3">
+        <h6 className="mb-2">Current Collaborators</h6>
+        {collaborators?.length === 0 ? (
+          <p className="text-muted small">No collaborators yet</p>
+        ) : (
+          <div className="list-group">
+            {collaborators?.map((collaborator) => (
+              <div key={collaborator.id} className="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <div className="fw-bold">{collaborator.username}</div>
+                  <small className="text-muted">{collaborator.userEmail}</small>
+                  <div>
+                    <span className={`badge ${
+                      collaborator.role === 'admin' ? 'bg-warning' : 
+                      collaborator.role === 'owner' ? 'bg-danger' : 'bg-info'
+                    }`}>
+                      {collaborator.role}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => removeMutation.mutate(collaborator.userId)}
+                  disabled={removeMutation.isPending}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pending Invitations */}
+      {invitations && invitations.length > 0 && (
+        <div>
+          <h6 className="mb-2">Pending Invitations</h6>
+          <div className="list-group">
+            {invitations.map((invitation) => (
+              <div key={invitation.id} className="list-group-item">
+                <div className="fw-bold">{invitation.invitedEmail}</div>
+                <small className="text-muted">
+                  Invited by {invitation.invitedByUsername} • Role: {invitation.role}
+                </small>
+                <div>
+                  <span className={`badge ${
+                    invitation.status === 'PENDING' ? 'bg-warning' :
+                    invitation.status === 'ACCEPTED' ? 'bg-success' :
+                    invitation.status === 'DECLINED' ? 'bg-danger' : 'bg-secondary'
+                  }`}>
+                    {invitation.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 /* ---------------- Add-list card ---------------- */
 function AddListCard({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
@@ -420,7 +632,6 @@ export default function ProjectBoardPage() {
       queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
   });
 
-  // central mutation for drag-and-drop task updates
   const updateTaskMutation = useMutation({
     mutationFn: (payload: { id: number; data: Partial<Task> }) =>
       updateTask(payload.id, payload.data),
@@ -437,7 +648,6 @@ export default function ProjectBoardPage() {
     const aId = String(active.id);
     const oId = String(over.id);
 
-    // ----- List reorder -----
     if (isListKey(aId) && isListKey(oId)) {
       const activeListId = parseKey(aId);
       const overListId = parseKey(oId);
@@ -450,27 +660,21 @@ export default function ProjectBoardPage() {
         ...l,
         position: i,
       }));
-      // optimistic cache update
       queryClient.setQueryData<BoardList[]>(["lists", projectId], reordered);
-      // persist new positions
       reordered.forEach((list, index) => {
         updateList(list.id, list.name, index);
       });
       return;
     }
 
-    // ----- Task reorder / move between lists -----
     if (!isTaskKey(aId)) return;
 
     const activeTaskId = parseKey(aId);
 
-    // find source list
     const sourceList = lists.find((l) =>
       l.tasks.some((t) => t.id === activeTaskId)
     );
     if (!sourceList) return;
-
-    // find target list & target index
     let targetList: BoardList | undefined;
     let targetIndex: number;
 
@@ -483,7 +687,7 @@ export default function ProjectBoardPage() {
       const overListId = parseKey(oId);
       targetList = lists.find((l) => l.id === overListId);
       if (!targetList) return;
-      targetIndex = targetList.tasks.length; // drop to end
+      targetIndex = targetList.tasks.length;
     } else {
       return;
     }
@@ -498,7 +702,6 @@ export default function ProjectBoardPage() {
         ? [...sourceTasks]
         : [...targetList.tasks];
 
-    // same list reorder
     if (sourceList.id === targetList.id) {
       const reordered = arrayMove(
         [...sourceList.tasks],
@@ -528,7 +731,6 @@ export default function ProjectBoardPage() {
       return;
     }
 
-    // moving across lists
     const insertAt = Math.min(targetIndex, targetTasks.length);
     targetTasks.splice(insertAt, 0, { ...movedTask, listId: targetList.id });
 
@@ -545,7 +747,6 @@ export default function ProjectBoardPage() {
     });
     queryClient.setQueryData<BoardList[]>(["lists", projectId], optimistic);
 
-    // persist positions for both lists
     sourceTasks.forEach((t, i) => {
       updateTaskMutation.mutate({
         id: t.id,
@@ -583,7 +784,10 @@ export default function ProjectBoardPage() {
     <div className="min-vh-100" style={{ background: "#f8f9fa" }}>
       <Navbar />
       <MDBContainer fluid className="py-4">
-        <h3 className="mb-4">{project.name}</h3>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h3 className="mb-0">{project.name}</h3>
+          <CollaborationPanel projectId={projectId} />
+        </div>
 
         <DndContext
           sensors={sensors}

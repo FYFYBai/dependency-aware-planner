@@ -50,7 +50,6 @@ public class User implements UserDetails {
     @Column(name = "verification_token", length = 255)
     private String verificationToken;
     
-    // UserDetails implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         String role = isAdmin ? "ADMIN" : "USER";

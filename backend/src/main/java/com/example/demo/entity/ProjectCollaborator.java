@@ -30,14 +30,14 @@ public class ProjectCollaborator {
     @JoinColumn(name = "invited_by", nullable = false)
     private User invitedBy;
     
+    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 255)
-    private String role;
+    private Role role;
     
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt = LocalDateTime.now();
     
-    // Constructor for creating a new collaborator
-    public ProjectCollaborator(Project project, User user, User invitedBy, String role) {
+    public ProjectCollaborator(Project project, User user, User invitedBy, Role role) {
         this.project = project;
         this.user = user;
         this.invitedBy = invitedBy;

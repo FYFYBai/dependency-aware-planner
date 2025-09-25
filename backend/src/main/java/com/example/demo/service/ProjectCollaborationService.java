@@ -36,19 +36,15 @@ public class ProjectCollaborationService {
     private EmailService emailService;
     
     public ProjectInvitationDto inviteUser(Long projectId, String inviterUsername, InviteUserRequest request) {
-        // Find project and inviter
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
         
         User inviter = userRepository.findByUsername(inviterUsername)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Only project owners and admins can invite users
         if (!isProjectOwnerOrAdmin(project, inviter)) {
             throw new RuntimeException("You don't have permission to invite users to this project");
         }
-        
-        // Prevent duplicate invitations
         Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
         if (existingUser.isPresent()) {
             if (collaboratorRepository.existsByProjectAndUser(project, existingUser.get())) {
@@ -62,13 +58,18 @@ public class ProjectCollaborationService {
             throw new RuntimeException("There's already a pending invitation for this email");
         }
         
-        // Create and send invitation
+        Role role = Role.fromValue(request.getRole());
         ProjectInvitation invitation = new ProjectInvitation(
-                project, inviter, request.getEmail(), request.getRole(), request.getExpirationHours()
+                project, inviter, request.getEmail(), role, request.getExpirationHours()
         );
         
         invitation = invitationRepository.save(invitation);
-        emailService.sendProjectInvitationEmail(invitation);
+        
+        try {
+            emailService.sendProjectInvitationEmail(invitation);
+        } catch (Exception e) {
+            System.err.println("Failed to send invitation email: " + e.getMessage());
+        }
         
         return ProjectInvitationDto.fromEntity(invitation);
     }
@@ -84,16 +85,12 @@ public class ProjectCollaborationService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Verify email matches
         if (!user.getEmail().equals(invitation.getInvitedEmail())) {
             throw new RuntimeException("This invitation is not for your email address");
         }
         
-        // Accept invitation
         invitation.accept();
         invitationRepository.save(invitation);
-        
-        // Create collaborator
         ProjectCollaborator collaborator = new ProjectCollaborator(
                 invitation.getProject(), user, invitation.getInvitedBy(), invitation.getRole()
         );
@@ -113,12 +110,9 @@ public class ProjectCollaborationService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Verify email matches
         if (!user.getEmail().equals(invitation.getInvitedEmail())) {
             throw new RuntimeException("This invitation is not for your email address");
         }
-        
-        // Decline invitation
         invitation.decline();
         invitationRepository.save(invitation);
     }
@@ -157,7 +151,6 @@ public class ProjectCollaborationService {
         userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Check if requester is project owner or admin
         if (!isProjectOwnerOrAdmin(project, requester)) {
             throw new RuntimeException("You don't have permission to remove collaborators");
         }
@@ -196,7 +189,7 @@ public class ProjectCollaborationService {
         Optional<ProjectCollaborator> collaborator = collaboratorRepository
                 .findByProjectAndUser(project, user);
         
-        return collaborator.isPresent() && "admin".equalsIgnoreCase(collaborator.get().getRole());
+        return collaborator.isPresent() && collaborator.get().getRole() == Role.ADMIN;
     }
     
     public void cleanupExpiredInvitations() {

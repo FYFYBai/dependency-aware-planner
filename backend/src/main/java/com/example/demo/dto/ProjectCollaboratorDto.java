@@ -30,7 +30,7 @@ public class ProjectCollaboratorDto {
         dto.setUserId(collaborator.getUser().getId());
         dto.setUsername(collaborator.getUser().getUsername());
         dto.setUserEmail(collaborator.getUser().getEmail());
-        dto.setRole(collaborator.getRole());
+        dto.setRole(collaborator.getRole().getValue());
         dto.setInvitedByUsername(collaborator.getInvitedBy().getUsername());
         dto.setJoinedAt(collaborator.getJoinedAt());
         return dto;

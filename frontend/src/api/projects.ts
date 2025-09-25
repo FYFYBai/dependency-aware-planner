@@ -14,8 +14,8 @@ export interface Task {
   description?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
-  position?: number; // optional while DB catches up
-  listId?: number; // used by FE; BE expects { list: { id } }
+  position?: number;
+  listId?: number;
 }
 
 export interface BoardList {
@@ -44,7 +44,6 @@ export const getLists = async (projectId: number): Promise<BoardList[]> => {
 };
 
 export const createList = async (projectId: number, name: string) => {
-  // Backend expects entity shape with nested relation for project
   const res = await api.post<BoardList>(`/lists`, {
     name,
     project: { id: projectId },
@@ -75,13 +74,11 @@ export const createTask = async (
     dueDate?: string;
   }
 ) => {
-  // Wrap listId for backend
   const res = await api.post<Task>(`/tasks`, { ...task, listId });
   return res.data;
 };
 
 export const updateTask = async (id: number, task: Partial<Task>) => {
-  // Directly send TaskDto shape
   const res = await api.put<Task>(`/tasks/${id}`, task);
 
   return res.data;
@@ -89,4 +86,80 @@ export const updateTask = async (id: number, task: Partial<Task>) => {
 
 export const deleteTask = async (id: number) => {
   await api.delete(`/tasks/${id}`);
+};
+
+/* ---------------------- Collaboration ---------------------- */
+export interface ProjectCollaborator {
+  id: number;
+  projectId: number;
+  projectName: string;
+  userId: number;
+  username: string;
+  userEmail: string;
+  role: string;
+  invitedByUsername: string;
+  joinedAt: string;
+}
+
+export interface ProjectInvitation {
+  id: number;
+  projectId: number;
+  projectName: string;
+  invitedByUsername: string;
+  invitedEmail: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  expiresAt: string;
+  respondedAt?: string;
+}
+
+export interface InviteUserRequest {
+  email: string;
+  role: string;
+  expirationHours?: number;
+}
+
+export const getProjectCollaborators = async (projectId: number): Promise<ProjectCollaborator[]> => {
+  const res = await api.get<ProjectCollaborator[]>(`/projects/${projectId}/collaboration/collaborators`);
+  return res.data;
+};
+
+export const getProjectInvitations = async (projectId: number): Promise<ProjectInvitation[]> => {
+  const res = await api.get<ProjectInvitation[]>(`/projects/${projectId}/collaboration/invitations`);
+  return res.data;
+};
+
+export const inviteUserToProject = async (projectId: number, request: InviteUserRequest): Promise<ProjectInvitation> => {
+  const res = await api.post<ProjectInvitation>(`/projects/${projectId}/collaboration/invite`, request);
+  return res.data;
+};
+
+export const removeCollaborator = async (projectId: number, userId: number): Promise<void> => {
+  await api.delete(`/projects/${projectId}/collaboration/collaborators/${userId}`);
+};
+
+export const checkProjectAccess = async (projectId: number): Promise<boolean> => {
+  const res = await api.get<boolean>(`/projects/${projectId}/collaboration/check-access`);
+  return res.data;
+};
+
+export const getUserInvitations = async (): Promise<ProjectInvitation[]> => {
+  const res = await api.get<ProjectInvitation[]>('/invitations/my-invitations');
+  return res.data;
+};
+
+export const acceptInvitation = async (token: string): Promise<ProjectCollaborator> => {
+  const res = await api.post<ProjectCollaborator>('/invitations/respond', {
+    token,
+    response: 'accept'
+  });
+  return res.data;
+};
+
+export const declineInvitation = async (token: string): Promise<void> => {
+  await api.post('/invitations/respond', {
+    token,
+    response: 'decline'
+  });
 };
