@@ -1,14 +1,24 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.ProjectDto;
-import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import com.example.demo.service.ProjectService;
-import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.dto.ProjectDto;
 import com.example.demo.entity.User;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.service.ProjectService;
+
+import lombok.RequiredArgsConstructor;
 
 
 @RestController
@@ -24,7 +34,7 @@ public class ProjectController {
         String username = auth.getName(); // from JWT principal
         User user = userRepo.findByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        return projectService.getByOwner(user);
+        return projectService.getByUser(user);
     }
 
     @PostMapping
@@ -41,7 +51,7 @@ public class ProjectController {
         String username = auth.getName();
         User user = userRepo.findByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(projectService.getByIdAndOwner(id, user));
+        return ResponseEntity.ok(projectService.getByIdAndUserAccess(id, user));
     }
 
     @PutMapping("/{id}")

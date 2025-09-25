@@ -1,21 +1,30 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.BoardListDto;
-import com.example.demo.entity.BoardList;
-import com.example.demo.mapper.ProjectMapper;
-import com.example.demo.repository.BoardListRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import com.example.demo.dto.BoardListDto;
+import com.example.demo.entity.BoardList;
+import com.example.demo.entity.User;
+import com.example.demo.mapper.ProjectMapper;
+import com.example.demo.repository.BoardListRepository;
+import com.example.demo.repository.ProjectRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class BoardListService {
 
     private final BoardListRepository listRepo;
+    private final ProjectRepository projectRepo;
 
-public List<BoardListDto> getAllByProject(Long projectId) {
+public List<BoardListDto> getAllByProject(Long projectId, User user) {
+    // Check if user has access to the project
+    projectRepo.findByIdAndUserAccess(projectId, user)
+            .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
+    
     return listRepo.findByProjectIdOrderByPositionAsc(projectId)
                    .stream()
                    .map(ProjectMapper::toDto)
