@@ -8,6 +8,7 @@ import ProjectsPage from "./pages/ProjectsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProjectBoardPage from "./pages/ProjectBoardPage";
 import CreateProjectPage from "./pages/CreateProjectPage";
+import InvitationResponsePage from "./pages/InvitationResponsePage";
 
 function App() {
   return (
@@ -47,6 +48,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateProjectPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/invitation/:token"
+            element={
+              <ProtectedRoute>
+                <InvitationResponsePage />
               </ProtectedRoute>
             }
           />

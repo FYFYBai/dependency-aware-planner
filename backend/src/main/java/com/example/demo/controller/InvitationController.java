@@ -16,7 +16,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/invitations")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:5173")
 public class InvitationController {
     
     @Autowired
@@ -49,8 +49,6 @@ public class InvitationController {
     
     @GetMapping("/validate/{token}")
     public ResponseEntity<ProjectInvitationDto> validateInvitation(@PathVariable String token) {
-        // This endpoint can be used to validate invitation tokens without authentication
-        // The actual response will be handled in the frontend
         return ResponseEntity.ok().build();
     }
 }

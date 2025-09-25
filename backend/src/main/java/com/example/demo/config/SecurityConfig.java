@@ -43,18 +43,12 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
         .csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
         .authorizeHttpRequests(auth -> auth
-            // Public auth endpoints
             .requestMatchers("/api/auth/**").permitAll()
-
-            // Preflight CORS always allowed
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-            // Secure project, list, and task APIs
             .requestMatchers("/api/projects/**").authenticated()
             .requestMatchers("/api/lists/**").authenticated()
             .requestMatchers("/api/tasks/**").authenticated()
-
-            // Deny everything else by default
+            .requestMatchers("/api/invitations/**").authenticated()
             .anyRequest().denyAll()
         )
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -67,7 +61,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173")); // frontend
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

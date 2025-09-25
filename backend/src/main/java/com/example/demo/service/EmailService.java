@@ -64,7 +64,7 @@ public class EmailService {
         message.setTo(invitation.getInvitedEmail());
         message.setSubject("Project Collaboration Invitation: " + invitation.getProject().getName());
         
-        String invitationUrl = frontendUrl + "/invitation?token=" + invitation.getToken();
+        String invitationUrl = frontendUrl + "/invitation/" + invitation.getToken();
         
         message.setText("""
             Hello,

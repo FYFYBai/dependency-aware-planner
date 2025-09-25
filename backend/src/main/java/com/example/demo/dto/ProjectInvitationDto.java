@@ -30,7 +30,7 @@ public class ProjectInvitationDto {
         dto.setProjectName(invitation.getProject().getName());
         dto.setInvitedByUsername(invitation.getInvitedBy().getUsername());
         dto.setInvitedEmail(invitation.getInvitedEmail());
-        dto.setRole(invitation.getRole());
+        dto.setRole(invitation.getRole().getValue());
         dto.setStatus(invitation.getStatus().name());
         dto.setCreatedAt(invitation.getCreatedAt());
         dto.setExpiresAt(invitation.getExpiresAt());

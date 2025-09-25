@@ -2,27 +2,75 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
-import { getAllProjects, type Project } from "../api/projects";
+import { getAllProjects, getProjectCollaborators, type Project, type ProjectCollaborator } from "../api/projects";
 import { MDBContainer, MDBRow, MDBCol, MDBCard, MDBCardBody, MDBCardTitle, MDBCardText } from "mdb-react-ui-kit";
+import { Users, Crown, Shield } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 
-// Frosted color palette for project cards
 const projectColors = [
-  { bg: "linear-gradient(135deg, #29353C 0%, #44576D 100%)", text: "white" }, // Dark blue-gray to medium blue-gray
-  { bg: "linear-gradient(135deg, #44576D 0%, #768A96 100%)", text: "white" }, // Medium blue-gray to light blue-gray
-  { bg: "linear-gradient(135deg, #768A96 0%, #AAC7D8 100%)", text: "#29353C" }, // Light blue-gray to very light blue-gray
-  { bg: "linear-gradient(135deg, #AAC7D8 0%, #DFEBF6 100%)", text: "#29353C" }, // Very light blue-gray to almost white
-  { bg: "linear-gradient(135deg, #DFEBF6 0%, #E6E6E6 100%)", text: "#29353C" }, // Almost white to light gray
-  { bg: "linear-gradient(135deg, #29353C 0%, #768A96 100%)", text: "white" }, // Dark to light blue-gray
-  { bg: "linear-gradient(135deg, #44576D 0%, #AAC7D8 100%)", text: "white" }, // Medium to very light blue-gray
-  { bg: "linear-gradient(135deg, #768A96 0%, #DFEBF6 100%)", text: "#29353C" }, // Light blue-gray to almost white
+  { bg: "linear-gradient(135deg, #29353C 0%, #44576D 100%)", text: "white" },
+  { bg: "linear-gradient(135deg, #44576D 0%, #768A96 100%)", text: "white" },
+  { bg: "linear-gradient(135deg, #768A96 0%, #AAC7D8 100%)", text: "#29353C" },
+  { bg: "linear-gradient(135deg, #AAC7D8 0%, #DFEBF6 100%)", text: "#29353C" },
+  { bg: "linear-gradient(135deg, #DFEBF6 0%, #E6E6E6 100%)", text: "#29353C" },
+  { bg: "linear-gradient(135deg, #29353C 0%, #768A96 100%)", text: "white" },
+  { bg: "linear-gradient(135deg, #44576D 0%, #AAC7D8 100%)", text: "white" },
+  { bg: "linear-gradient(135deg, #768A96 0%, #DFEBF6 100%)", text: "#29353C" },
 ];
 
 function ProjectCard({ project, index }: { project: Project; index: number }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const color = projectColors[index % projectColors.length];
   
+  const { data: collaborators } = useQuery<ProjectCollaborator[]>({
+    queryKey: ["collaborators", project.id],
+    queryFn: () => getProjectCollaborators(project.id),
+  });
+
   const handleClick = () => {
     navigate(`/projects/${project.id}`);
+  };
+
+  // Determine user's role in this project
+  const getUserRole = () => {
+    if (!user || !collaborators) return null;
+    
+    // Check if user is the project owner (this would need to be added to the Project interface)
+    // For now, we'll assume the first collaborator or check if user is in collaborators list
+    const userCollaborator = collaborators.find(c => c.username === user.username);
+    if (userCollaborator) {
+      return userCollaborator.role;
+    }
+    return null;
+  };
+
+  const userRole = getUserRole();
+  const collaboratorCount = collaborators?.length || 0;
+
+  const getRoleIcon = () => {
+    switch (userRole) {
+      case 'admin':
+        return <Shield size={14} className="me-1" />;
+      case 'owner':
+        return <Crown size={14} className="me-1" />;
+      default:
+        return <Users size={14} className="me-1" />;
+    }
+  };
+
+  const getRoleBadge = () => {
+    if (!userRole) return null;
+    
+    const badgeClass = userRole === 'admin' ? 'bg-warning' : 
+                      userRole === 'owner' ? 'bg-danger' : 'bg-info';
+    
+    return (
+      <span className={`badge ${badgeClass} small`} style={{ fontSize: '0.7rem' }}>
+        {getRoleIcon()}
+        {userRole}
+      </span>
+    );
   };
 
   return (
@@ -44,25 +92,37 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
         >
           <MDBCardBody className="p-3 d-flex flex-column justify-content-between">
             <div>
-              <MDBCardTitle
-                className="h5 mb-2"
-                style={{ color: color.text, fontWeight: "600" }}
-              >
-                {project.name}
-              </MDBCardTitle>
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <MDBCardTitle
+                  className="h5 mb-0"
+                  style={{ color: color.text, fontWeight: "600" }}
+                >
+                  {project.name}
+                </MDBCardTitle>
+                {getRoleBadge()}
+              </div>
+              
               <MDBCardText
-                className="small mb-0"
+                className="small mb-2"
                 style={{ 
                   color: color.text, 
                   opacity: 0.9,
                   display: "-webkit-box",
-                  WebkitLineClamp: 3,
+                  WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
                 }}
               >
                 {project.description || "No description"}
               </MDBCardText>
+              
+              {/* Collaboration info */}
+              <div className="d-flex align-items-center" style={{ color: color.text, opacity: 0.8 }}>
+                <Users size={12} className="me-1" />
+                <small style={{ fontSize: '0.75rem' }}>
+                  {collaboratorCount} collaborator{collaboratorCount !== 1 ? 's' : ''}
+                </small>
+              </div>
             </div>
           </MDBCardBody>
         </MDBCard>

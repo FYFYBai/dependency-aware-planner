@@ -16,7 +16,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/projects/{projectId}/collaboration")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:5173")
 public class ProjectCollaborationController {
     
     @Autowired

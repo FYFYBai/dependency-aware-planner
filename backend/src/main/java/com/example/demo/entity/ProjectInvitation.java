@@ -30,8 +30,9 @@ public class ProjectInvitation {
     @Column(name = "invited_email", nullable = false, length = 100)
     private String invitedEmail;
     
+    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 255)
-    private String role;
+    private Role role;
     
     @Column(name = "token", nullable = false, unique = true, length = 255)
     private String token;
@@ -49,8 +50,7 @@ public class ProjectInvitation {
     @Column(name = "responded_at")
     private LocalDateTime respondedAt;
     
-    // Constructor for creating a new invitation
-    public ProjectInvitation(Project project, User invitedBy, String invitedEmail, String role, int expirationHours) {
+    public ProjectInvitation(Project project, User invitedBy, String invitedEmail, Role role, int expirationHours) {
         this.project = project;
         this.invitedBy = invitedBy;
         this.invitedEmail = invitedEmail;
