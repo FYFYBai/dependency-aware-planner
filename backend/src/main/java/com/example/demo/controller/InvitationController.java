@@ -1,14 +1,25 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.*;
-import com.example.demo.service.ProjectCollaborationService;
-import jakarta.validation.Valid;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.example.demo.dto.InvitationResponseByIdRequest;
+import com.example.demo.dto.ProjectCollaboratorDto;
+import com.example.demo.dto.ProjectInvitationDto;
+import com.example.demo.entity.ProjectInvitation;
+import com.example.demo.service.ProjectCollaborationService;
+
+import jakarta.validation.Valid;
 
 /**
  * REST controller for handling project invitation responses.
@@ -31,16 +42,14 @@ public class InvitationController {
     
     @PostMapping("/respond")
     public ResponseEntity<?> respondToInvitation(
-            @Valid @RequestBody InvitationResponseRequest request,
+            @Valid @RequestBody InvitationResponseByIdRequest request,
             Authentication authentication) {
         
-        String username = authentication.getName();
-        
         if ("accept".equalsIgnoreCase(request.getResponse())) {
-            ProjectCollaboratorDto collaborator = collaborationService.acceptInvitation(request.getToken(), username);
+            ProjectCollaboratorDto collaborator = collaborationService.acceptInvitationById(request.getId());
             return ResponseEntity.ok(collaborator);
         } else if ("decline".equalsIgnoreCase(request.getResponse())) {
-            collaborationService.declineInvitation(request.getToken(), username);
+            collaborationService.declineInvitationById(request.getId());
             return ResponseEntity.ok().build();
         } else {
             return ResponseEntity.badRequest().body("Invalid response. Use 'accept' or 'decline'.");
@@ -49,6 +58,26 @@ public class InvitationController {
     
     @GetMapping("/validate/{token}")
     public ResponseEntity<ProjectInvitationDto> validateInvitation(@PathVariable String token) {
-        return ResponseEntity.ok().build();
+        try {
+            ProjectInvitation invitation = collaborationService.validateInvitationToken(token);
+            return ResponseEntity.ok(ProjectInvitationDto.fromEntity(invitation));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(null);
+        }
+    }
+    
+    @PostMapping("/public/respond-by-id")
+    public ResponseEntity<?> respondToInvitationById(
+            @Valid @RequestBody InvitationResponseByIdRequest request) {
+        
+        if ("accept".equalsIgnoreCase(request.getResponse())) {
+            ProjectCollaboratorDto collaborator = collaborationService.acceptInvitationById(request.getId());
+            return ResponseEntity.ok(collaborator);
+        } else if ("decline".equalsIgnoreCase(request.getResponse())) {
+            collaborationService.declineInvitationById(request.getId());
+            return ResponseEntity.ok().build();
+        } else {
+            return ResponseEntity.badRequest().body("Invalid response. Use 'accept' or 'decline'.");
+        }
     }
 }

@@ -149,17 +149,17 @@ export const getUserInvitations = async (): Promise<ProjectInvitation[]> => {
   return res.data;
 };
 
-export const acceptInvitation = async (token: string): Promise<ProjectCollaborator> => {
-  const res = await api.post<ProjectCollaborator>('/invitations/respond', {
-    token,
+export const acceptInvitation = async (invitationId: string): Promise<ProjectCollaborator> => {
+  const res = await api.post<ProjectCollaborator>('/invitations/public/respond-by-id', {
+    id: parseInt(invitationId),
     response: 'accept'
   });
   return res.data;
 };
 
-export const declineInvitation = async (token: string): Promise<void> => {
-  await api.post('/invitations/respond', {
-    token,
+export const declineInvitation = async (invitationId: string): Promise<void> => {
+  await api.post('/invitations/public/respond-by-id', {
+    id: parseInt(invitationId),
     response: 'decline'
   });
 };
