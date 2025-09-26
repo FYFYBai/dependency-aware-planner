@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -15,5 +16,6 @@ public class ProjectDto {
     private String name;
     private String description;
     private LocalDateTime createdAt;
-    private List<BoardListDto> lists;  // include child lists
+    // Always non-null for serialization
+    private List<BoardListDto> lists = new ArrayList<>();
 }
