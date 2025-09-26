@@ -20,6 +20,8 @@ import {
   deleteList,
   updateTask,
   deleteTask,
+  addDependency,
+  removeDependency,
   getProjectCollaborators,
   getProjectInvitations,
   inviteUserToProject,
@@ -49,6 +51,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import GraphView from "../components/GraphView";
+import GanttView from "../components/GanttView";
 
 /* ---------------- Helpers to avoid ID collisions ---------------- */
 const listKey = (id: number) => `list-${id}`;
@@ -94,9 +98,11 @@ function Droppable({
 function TaskSection({
   projectId,
   list,
+  allTasks,
 }: {
   projectId: number;
   list: BoardList;
+  allTasks: Task[];
 }) {
   const queryClient = useQueryClient();
   const [addingTask, setAddingTask] = useState(false);
@@ -125,6 +131,12 @@ function TaskSection({
     },
   });
 
+  // ---------------------------
+  // Mutation: Update Task
+  // ---------------------------
+  // Handles updating a task and synchronizing dependency relationships.
+  // Ensures both tasks (lists) and dependency queries are invalidated
+  // so that UI updates immediately without a manual refresh.
   const updateTaskMutation = useMutation({
     mutationFn: (task: Task) =>
       updateTask(task.id, {
@@ -136,18 +148,83 @@ function TaskSection({
         listId: list.id,
         position: task.position ?? undefined,
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
+
+    onSuccess: async (updated) => {
+      // Refresh tasks
+      await queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
+
+      if (editingTask) {
+        const prevIds = updated.dependencyIds || []; // what server has now
+        const nextIds = editingTask.dependencyIds || []; // what user wants
+
+        const ops: Promise<any>[] = [];
+
+        // Add missing deps
+        for (const id of nextIds.filter((id) => !prevIds.includes(id))) {
+          ops.push(addDependency(updated.id, id));
+        }
+
+        // Remove extras
+        for (const id of prevIds.filter((id) => !nextIds.includes(id))) {
+          ops.push(removeDependency(updated.id, id));
+        }
+
+        if (ops.length > 0) {
+          await Promise.all(ops);
+          await queryClient.invalidateQueries({
+            queryKey: ["dependencies", updated.id],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ["lists", projectId],
+          }); // refresh tasks again
+        }
+      }
+
       setEditingTask(null);
+    },
+    onError: async (error: any) => {
+      let errorMessage = "Failed to update task";
+
+      // Case 1: Axios-style error
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      // Case 2: Fetch/React Query Response error
+      else if (error instanceof Response) {
+        try {
+          const data = await error.json();
+          if (data?.message) {
+            errorMessage = data.message;
+          }
+        } catch (_) {
+          // ignore parsing failure
+        }
+      }
+      // Case 3: Standard JS error
+      else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      setError(errorMessage); // show in form
     },
   });
 
+  // ---------------------------
+  // Mutation: Delete Task
+  // ---------------------------
+  // Ensures that the tasks (lists) query is refreshed
+  // so UI reflects deletion immediately.
   const deleteTaskMutation = useMutation({
     mutationFn: deleteTask,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["lists", projectId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
+    },
   });
 
+  // ---------------------------
+  // Handler: Add Task
+  // ---------------------------
+  // Validates and triggers task creation.
   const handleAddTask = () => {
     if (!newTask.trim()) {
       setError("Task name is required");
@@ -164,112 +241,204 @@ function TaskSection({
           items={list.tasks.map((t) => taskKey(t.id))}
           strategy={verticalListSortingStrategy}
         >
-          {list.tasks.map((task) =>
-            editingTask && editingTask.id === task.id ? (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="p-2 mb-2 bg-light border rounded text-start"
-              >
-                <MDBInput
-                  label="Task Name *"
-                  value={editingTask.name}
-                  onChange={(e) =>
-                    setEditingTask({ ...editingTask, name: e.target.value })
-                  }
-                  className="mb-2"
-                />
-                <MDBInput
-                  label="Description"
-                  value={editingTask.description || ""}
-                  onChange={(e) =>
-                    setEditingTask({
-                      ...editingTask,
-                      description: e.target.value,
-                    })
-                  }
-                  className="mb-2"
-                />
-                <MDBInput
-                  label="Start Date"
-                  type="date"
-                  value={editingTask.startDate || ""}
-                  onChange={(e) =>
-                    setEditingTask({
-                      ...editingTask,
-                      startDate: e.target.value,
-                    })
-                  }
-                  className="mb-2"
-                />
-                <MDBInput
-                  label="Due Date"
-                  type="date"
-                  value={editingTask.dueDate || ""}
-                  onChange={(e) =>
-                    setEditingTask({
-                      ...editingTask,
-                      dueDate: e.target.value,
-                    })
-                  }
-                  className="mb-2"
-                />
-                <MDBBtn
-                  size="sm"
-                  className="me-2"
-                  onClick={() => updateTaskMutation.mutate(editingTask)}
-                >
-                  Update
-                </MDBBtn>
-                <MDBBtn outline size="sm" onClick={() => setEditingTask(null)}>
-                  Cancel
-                </MDBBtn>
-              </motion.div>
-            ) : (
-              <SortableItem key={task.id} id={taskKey(task.id)}>
+          {[...list.tasks]
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((task) =>
+              editingTask && editingTask.id === task.id ? (
                 <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
+                  key={task.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="p-2 mb-2 bg-light border rounded text-start"
                 >
-                  <div className="d-flex justify-content-between align-items-center">
-                    <strong>{task.name}</strong>
-                    <div className="d-flex gap-2">
-                      <span title="Edit task">
-                        <Pencil
-                          size={16}
-                          className="text-primary"
-                          style={{ cursor: "pointer" }}
-                          onClick={() => setEditingTask(task)}
-                        />
-                      </span>
-                      <span title="Delete task">
-                        <Trash2
-                          size={16}
-                          className="text-danger"
-                          style={{ cursor: "pointer" }}
-                          onClick={() => deleteTaskMutation.mutate(task.id)}
-                        />
-                      </span>
-                    </div>
-                  </div>
-                  {task.description && (
-                    <div className="text-muted small mt-1">
-                      {task.description}
-                    </div>
-                  )}
-                  {(task.startDate || task.dueDate) && (
-                    <div className="text-muted small mt-1">
-                      {task.startDate && <>Start: {task.startDate} </>}
-                      {task.dueDate && <>• Due: {task.dueDate}</>}
-                    </div>
-                  )}
+                  <MDBInput
+                    label="Task Name *"
+                    value={editingTask.name}
+                    onChange={(e) =>
+                      setEditingTask({ ...editingTask, name: e.target.value })
+                    }
+                    className="mb-2"
+                  />
+                  <MDBInput
+                    label="Description"
+                    value={editingTask.description || ""}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        description: e.target.value,
+                      })
+                    }
+                    className="mb-2"
+                  />
+                  <MDBInput
+                    label="Start Date"
+                    type="date"
+                    value={editingTask.startDate || ""}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        startDate: e.target.value,
+                      })
+                    }
+                    className="mb-2"
+                  />
+                  <MDBInput
+                    label="Due Date"
+                    type="date"
+                    value={editingTask.dueDate || ""}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        dueDate: e.target.value,
+                      })
+                    }
+                    className="mb-2"
+                  />
+
+                  {/* Dependency selector */}
+                  <label className="form-label">Dependencies</label>
+                  <select
+                    multiple
+                    value={(editingTask.dependencyIds || []).map(String)} // convert to string[]
+                    onChange={(e) => {
+                      const selected = Array.from(
+                        e.target.selectedOptions,
+                        (opt) => Number(opt.value) // convert back to numbers
+                      );
+                      setEditingTask({
+                        ...editingTask,
+                        dependencyIds: selected,
+                      });
+                    }}
+                    className="form-select mb-2"
+                  >
+                    {allTasks
+                      .filter((t) => t.id !== editingTask.id)
+                      .map((t) => (
+                        <option key={t.id} value={String(t.id)}>
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                  {error && <div className="text-danger mb-2">{error}</div>}
+                  <MDBBtn
+                    size="sm"
+                    className="me-2"
+                    onClick={() => updateTaskMutation.mutate(editingTask)}
+                  >
+                    Update
+                  </MDBBtn>
+                  <MDBBtn
+                    outline
+                    size="sm"
+                    onClick={() => setEditingTask(null)}
+                  >
+                    Cancel
+                  </MDBBtn>
                 </motion.div>
-              </SortableItem>
-            )
-          )}
+              ) : (
+                <SortableItem key={task.id} id={taskKey(task.id)}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="p-2 mb-2 bg-light border rounded text-start"
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <strong>{task.name}</strong>
+                      <div className="d-flex gap-2">
+                        <span title="Edit task">
+                          <Pencil
+                            size={16}
+                            className="text-primary"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => setEditingTask(task)}
+                          />
+                        </span>
+                        <span title="Delete task">
+                          <Trash2
+                            size={16}
+                            className="text-danger"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => deleteTaskMutation.mutate(task.id)}
+                          />
+                        </span>
+                      </div>
+                    </div>
+                    {task.description && (
+                      <div className="text-muted small mt-1">
+                        {task.description}
+                      </div>
+                    )}
+                    {(task.startDate || task.dueDate) && (
+                      <div className="text-muted small mt-1">
+                        {task.startDate && <>Start: {task.startDate} </>}
+                        {task.dueDate && <>• Due: {task.dueDate}</>}
+                      </div>
+                    )}
+                    {task.dependencyIds && task.dependencyIds.length > 0 && (
+                      <div className="text-muted small mt-1">
+                        <strong>Depends on:</strong>{" "}
+                        {task.dependencyIds.map((id) => {
+                          const depTask = allTasks.find((t) => t.id === id);
+                          return (
+                            <span
+                              key={id}
+                              className="badge bg-secondary me-1 d-inline-flex align-items-center"
+                            >
+                              {depTask ? depTask.name : `#${id}`}
+                              <button
+                                type="button"
+                                className="btn-close btn-close-white btn-sm ms-1"
+                                aria-label="Remove"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Remove dependency on "${
+                                        depTask?.name ?? id
+                                      }"?`
+                                    )
+                                  ) {
+                                    removeDependency(task.id, id)
+                                      .then(() => {
+                                        // Update the local editingTask state if this task is currently being edited
+                                        if (
+                                          editingTask &&
+                                          editingTask.id === task.id
+                                        ) {
+                                          setEditingTask({
+                                            ...editingTask,
+                                            dependencyIds:
+                                              editingTask.dependencyIds?.filter(
+                                                (d) => d !== id
+                                              ),
+                                          });
+                                        }
+
+                                        // Re-fetch the latest data from backend
+                                        queryClient.invalidateQueries({
+                                          queryKey: ["lists", projectId],
+                                        });
+                                      })
+                                      .catch((err) =>
+                                        console.error(
+                                          "Failed to remove dependency",
+                                          err
+                                        )
+                                      );
+                                  }
+                                }}
+                                style={{ fontSize: "0.6rem" }}
+                              />
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </motion.div>
+                </SortableItem>
+              )
+            )}
         </SortableContext>
       </Droppable>
 
@@ -346,7 +515,8 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
   });
 
   const inviteMutation = useMutation({
-    mutationFn: (request: InviteUserRequest) => inviteUserToProject(projectId, request),
+    mutationFn: (request: InviteUserRequest) =>
+      inviteUserToProject(projectId, request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invitations", projectId] });
       setInviteEmail("");
@@ -356,8 +526,10 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
     },
     onError: (error: unknown) => {
       let errorMessage = "Failed to send invitation";
-      if (error && typeof error === 'object' && 'response' in error) {
-        const responseError = error as { response?: { data?: { message?: string } } };
+      if (error && typeof error === "object" && "response" in error) {
+        const responseError = error as {
+          response?: { data?: { message?: string } };
+        };
         errorMessage = responseError.response?.data?.message || errorMessage;
       } else if (error instanceof Error) {
         errorMessage = error.message;
@@ -447,7 +619,11 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
           </div>
           {error && <div className="text-danger mb-2">{error}</div>}
           <div className="d-flex gap-2">
-            <MDBBtn size="sm" onClick={handleInvite} disabled={inviteMutation.isPending}>
+            <MDBBtn
+              size="sm"
+              onClick={handleInvite}
+              disabled={inviteMutation.isPending}
+            >
               {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
             </MDBBtn>
             <MDBBtn outline size="sm" onClick={() => setShowInviteForm(false)}>
@@ -474,15 +650,23 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
         ) : (
           <div className="list-group">
             {collaborators?.map((collaborator) => (
-              <div key={collaborator.id} className="list-group-item d-flex justify-content-between align-items-center">
+              <div
+                key={collaborator.id}
+                className="list-group-item d-flex justify-content-between align-items-center"
+              >
                 <div>
                   <div className="fw-bold">{collaborator.username}</div>
                   <small className="text-muted">{collaborator.userEmail}</small>
                   <div>
-                    <span className={`badge ${
-                      collaborator.role === 'admin' ? 'bg-warning' : 
-                      collaborator.role === 'owner' ? 'bg-danger' : 'bg-info'
-                    }`}>
+                    <span
+                      className={`badge ${
+                        collaborator.role === "admin"
+                          ? "bg-warning"
+                          : collaborator.role === "owner"
+                          ? "bg-danger"
+                          : "bg-info"
+                      }`}
+                    >
                       {collaborator.role}
                     </span>
                   </div>
@@ -509,14 +693,21 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
               <div key={invitation.id} className="list-group-item">
                 <div className="fw-bold">{invitation.invitedEmail}</div>
                 <small className="text-muted">
-                  Invited by {invitation.invitedByUsername} • Role: {invitation.role}
+                  Invited by {invitation.invitedByUsername} • Role:{" "}
+                  {invitation.role}
                 </small>
                 <div>
-                  <span className={`badge ${
-                    invitation.status === 'PENDING' ? 'bg-warning' :
-                    invitation.status === 'ACCEPTED' ? 'bg-success' :
-                    invitation.status === 'DECLINED' ? 'bg-danger' : 'bg-secondary'
-                  }`}>
+                  <span
+                    className={`badge ${
+                      invitation.status === "PENDING"
+                        ? "bg-warning"
+                        : invitation.status === "ACCEPTED"
+                        ? "bg-success"
+                        : invitation.status === "DECLINED"
+                        ? "bg-danger"
+                        : "bg-secondary"
+                    }`}
+                  >
                     {invitation.status}
                   </span>
                 </div>
@@ -615,6 +806,7 @@ export default function ProjectBoardPage() {
     enabled: Number.isFinite(projectId),
   });
 
+  const [view, setView] = useState<"board" | "graph" | "gantt">("board");
   const [editingList, setEditingList] = useState<BoardList | null>(null);
 
   const updateListMutation = useMutation({
@@ -783,100 +975,146 @@ export default function ProjectBoardPage() {
   return (
     <div className="min-vh-100" style={{ background: "#f8f9fa" }}>
       <Navbar />
-      <MDBContainer fluid className="py-4">
+      <MDBContainer
+        fluid
+        className="py-4"
+        style={{ minHeight: "calc(100vh - 80px)" }}
+      >
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className="mb-0">{project.name}</h3>
           <CollaborationPanel projectId={projectId} />
         </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={lists.map((list) => listKey(list.id))}
-            strategy={horizontalListSortingStrategy}
+        {/* View toggle buttons */}
+        <div className="btn-group mb-3">
+          <button
+            className={`btn btn-sm ${
+              view === "board" ? "btn-primary" : "btn-outline-primary"
+            }`}
+            onClick={() => setView("board")}
           >
-            <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2">
-              {lists.map((list) => (
-                <SortableItem key={list.id} id={listKey(list.id)}>
-                  <div className="w-[320px] shrink-0">
-                    <MDBCard className="shadow-sm border-0 mb-4">
-                      <MDBCardBody>
-                        <MDBCardTitle className="h5 d-flex justify-content-between align-items-center">
-                          <span>{list.name}</span>
-                          <span className="d-flex gap-2">
-                            <span title="Edit list">
-                              <Pencil
-                                size={18}
-                                className="text-primary"
-                                style={{ cursor: "pointer" }}
-                                onClick={() => setEditingList(list)}
-                              />
+            Board
+          </button>
+          <button
+            className={`btn btn-sm ${
+              view === "graph" ? "btn-primary" : "btn-outline-primary"
+            }`}
+            onClick={() => setView("graph")}
+          >
+            Graph
+          </button>
+          <button
+            className={`btn btn-sm ${
+              view === "gantt" ? "btn-primary" : "btn-outline-primary"
+            }`}
+            onClick={() => setView("gantt")}
+          >
+            Gantt
+          </button>
+        </div>
+
+        {/* Conditional rendering for views */}
+        {view === "board" && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={lists.map((list) => listKey(list.id))}
+              strategy={horizontalListSortingStrategy}
+            >
+              <div className="flex flex-nowrap gap-3 overflow-x-auto pb-2">
+                {lists.map((list) => (
+                  <SortableItem key={list.id} id={listKey(list.id)}>
+                    <div className="w-[320px] shrink-0">
+                      <MDBCard className="shadow-sm border-0 mb-4">
+                        <MDBCardBody>
+                          <MDBCardTitle className="h5 d-flex justify-content-between align-items-center">
+                            <span>{list.name}</span>
+                            <span className="d-flex gap-2">
+                              <span title="Edit list">
+                                <Pencil
+                                  size={18}
+                                  className="text-primary"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() => setEditingList(list)}
+                                />
+                              </span>
+                              <span title="Delete list">
+                                <Trash2
+                                  size={18}
+                                  className="text-danger"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() =>
+                                    deleteListMutation.mutate(list.id)
+                                  }
+                                />
+                              </span>
                             </span>
-                            <span title="Delete list">
-                              <Trash2
-                                size={18}
-                                className="text-danger"
-                                style={{ cursor: "pointer" }}
-                                onClick={() =>
-                                  deleteListMutation.mutate(list.id)
+                          </MDBCardTitle>
+
+                          {editingList && editingList.id === list.id ? (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            >
+                              <MDBInput
+                                label="List Name *"
+                                value={editingList.name}
+                                onChange={(e) =>
+                                  setEditingList({
+                                    ...editingList,
+                                    name: e.target.value,
+                                  })
                                 }
+                                className="mb-2"
                               />
-                            </span>
-                          </span>
-                        </MDBCardTitle>
+                              <MDBBtn
+                                size="sm"
+                                className="me-2"
+                                onClick={() =>
+                                  updateListMutation.mutate(editingList)
+                                }
+                              >
+                                Update
+                              </MDBBtn>
+                              <MDBBtn
+                                outline
+                                size="sm"
+                                onClick={() => setEditingList(null)}
+                              >
+                                Cancel
+                              </MDBBtn>
+                            </motion.div>
+                          ) : null}
 
-                        {editingList && editingList.id === list.id ? (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                          >
-                            <MDBInput
-                              label="List Name *"
-                              value={editingList.name}
-                              onChange={(e) =>
-                                setEditingList({
-                                  ...editingList,
-                                  name: e.target.value,
-                                })
-                              }
-                              className="mb-2"
-                            />
-                            <MDBBtn
-                              size="sm"
-                              className="me-2"
-                              onClick={() =>
-                                updateListMutation.mutate(editingList)
-                              }
-                            >
-                              Update
-                            </MDBBtn>
-                            <MDBBtn
-                              outline
-                              size="sm"
-                              onClick={() => setEditingList(null)}
-                            >
-                              Cancel
-                            </MDBBtn>
-                          </motion.div>
-                        ) : null}
+                          {/* Tasks */}
+                          <TaskSection
+                            projectId={projectId}
+                            list={list}
+                            allTasks={lists.flatMap((l) => l.tasks)}
+                          />
+                        </MDBCardBody>
+                      </MDBCard>
+                    </div>
+                  </SortableItem>
+                ))}
 
-                        {/* Tasks */}
-                        <TaskSection projectId={projectId} list={list} />
-                      </MDBCardBody>
-                    </MDBCard>
-                  </div>
-                </SortableItem>
-              ))}
-
-              <div className="w-[320px] shrink-0">
-                <AddListCard projectId={projectId} />
+                <div className="w-[320px] shrink-0">
+                  <AddListCard projectId={projectId} />
+                </div>
               </div>
-            </div>
-          </SortableContext>
-        </DndContext>
+            </SortableContext>
+          </DndContext>
+        )}
+
+        {view === "graph" && (
+          <GraphView tasks={lists.flatMap((l) => l.tasks)} />
+        )}
+        {view === "gantt" && (
+          <GanttView tasks={lists.flatMap((l) => l.tasks)} />
+        )}
       </MDBContainer>
     </div>
   );

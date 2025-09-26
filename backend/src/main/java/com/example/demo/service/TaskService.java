@@ -12,6 +12,9 @@ import com.example.demo.mapper.ProjectMapper;
 import com.example.demo.repository.BoardListRepository;
 import com.example.demo.repository.ProjectRepository;
 import com.example.demo.repository.TaskRepository;
+import com.example.demo.repository.DependencyRepository; 
+import java.util.Collections;
+
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,34 +25,40 @@ public class TaskService {
     private final TaskRepository taskRepo;
     private final BoardListRepository listRepo;
     private final ProjectRepository projectRepo;
+    private final DependencyRepository dependencyRepo; // inject repo
 
     public List<TaskDto> getAllByList(Long listId, User user) {
         // First get the list to find its project
         BoardList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found"));
-        
+
         // Check if user has access to the project
         projectRepo.findByIdAndUserAccess(list.getProject().getId(), user)
                 .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
-        
+
         return taskRepo.findByListId(listId).stream()
-                .map(ProjectMapper::toDto)
+                .map(task -> {
+                    List<Long> deps = dependencyRepo.findByTaskId(task.getId())
+                            .stream()
+                            .map(d -> d.getDependsOn().getId())
+                            .toList();
+                    return ProjectMapper.toDto(task, deps);
+                })
                 .toList();
     }
 
     public TaskDto create(TaskDto dto, User user) {
-        // make sure list is attached
         if (dto.getListId() == null) {
             throw new IllegalArgumentException("Task must belong to a list");
         }
-        
+
         BoardList list = listRepo.findById(dto.getListId())
-            .orElseThrow(() -> new RuntimeException("List not found"));
-        
+                .orElseThrow(() -> new RuntimeException("List not found"));
+
         // Check if user has access to the project
         projectRepo.findByIdAndUserAccess(list.getProject().getId(), user)
                 .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
-        
+
         Task task = new Task();
         task.setName(dto.getName());
         task.setDescription(dto.getDescription());
@@ -67,9 +76,10 @@ public class TaskService {
         task.setList(list);
 
         Task saved = taskRepo.save(task);
-        return ProjectMapper.toDto(saved);
-    }
 
+        // fetch empty deps (new task)
+        return ProjectMapper.toDto(saved, Collections.emptyList());
+    }
 
     public TaskDto update(Long id, TaskDto dto, User user) {
         Task task = taskRepo.findById(id)
@@ -91,19 +101,24 @@ public class TaskService {
             task.setList(list);
         }
 
-        return ProjectMapper.toDto(taskRepo.save(task));
+        Task saved = taskRepo.save(task);
+
+        List<Long> deps = dependencyRepo.findByTaskId(saved.getId())
+                .stream()
+                .map(d -> d.getDependsOn().getId())
+                .toList();
+
+        return ProjectMapper.toDto(saved, deps);
     }
-
-
 
     public void delete(Long id, User user) {
         Task task = taskRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
-        
+
         // Check if user has access to the project
         projectRepo.findByIdAndUserAccess(task.getList().getProject().getId(), user)
                 .orElseThrow(() -> new RuntimeException("Project not found or access denied"));
-        
+
         taskRepo.deleteById(id);
     }
 }

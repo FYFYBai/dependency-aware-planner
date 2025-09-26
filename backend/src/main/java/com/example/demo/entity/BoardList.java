@@ -22,5 +22,6 @@ public class BoardList {
     private Project project;
 
     @OneToMany(mappedBy = "list", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
     private List<Task> tasks;
 }

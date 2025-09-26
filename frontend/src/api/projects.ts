@@ -16,6 +16,7 @@ export interface Task {
   dueDate?: string | null;
   position?: number;
   listId?: number;
+  dependencyIds?: number[]; // optional, always normalized to []
 }
 
 export interface BoardList {
@@ -23,12 +24,19 @@ export interface BoardList {
   name: string;
   position?: number;
   createdAt: string;
-  tasks: Task[];
+  tasks: Task[]; // always normalized to []
+}
+
+/** Dependency relation: taskId depends on dependsOnId */
+export interface DependencyDto {
+  id: number; // unique dependency row id
+  taskId: number; // the task being blocked
+  dependsOnId: number; // the prerequisite task
 }
 
 /* ---------------------- Projects ---------------------- */
 export const getAllProjects = async (): Promise<Project[]> => {
-  const res = await api.get<Project[]>('/projects');
+  const res = await api.get<Project[]>("/projects");
   return res.data;
 };
 
@@ -40,7 +48,14 @@ export const getProject = async (projectId: number): Promise<Project> => {
 /* ---------------------- Lists ---------------------- */
 export const getLists = async (projectId: number): Promise<BoardList[]> => {
   const res = await api.get<BoardList[]>(`/lists/project/${projectId}`);
-  return res.data;
+  // Normalize lists and tasks
+  return res.data.map((list) => ({
+    ...list,
+    tasks: (list.tasks || []).map((t) => ({
+      ...t,
+      dependencyIds: t.dependencyIds || [],
+    })),
+  }));
 };
 
 export const createList = async (projectId: number, name: string) => {
@@ -48,7 +63,14 @@ export const createList = async (projectId: number, name: string) => {
     name,
     project: { id: projectId },
   });
-  return res.data;
+  // Normalize tasks
+  return {
+    ...res.data,
+    tasks: (res.data.tasks || []).map((t) => ({
+      ...t,
+      dependencyIds: t.dependencyIds || [],
+    })),
+  };
 };
 
 export const updateList = async (
@@ -57,7 +79,14 @@ export const updateList = async (
   position: number
 ) => {
   const res = await api.put<BoardList>(`/lists/${id}`, { id, name, position });
-  return res.data;
+  // Normalize tasks
+  return {
+    ...res.data,
+    tasks: (res.data.tasks || []).map((t) => ({
+      ...t,
+      dependencyIds: t.dependencyIds || [],
+    })),
+  };
 };
 
 export const deleteList = async (id: number) => {
@@ -75,17 +104,47 @@ export const createTask = async (
   }
 ) => {
   const res = await api.post<Task>(`/tasks`, { ...task, listId });
-  return res.data;
+  // Normalize dependencyIds
+  return { ...res.data, dependencyIds: res.data.dependencyIds || [] };
 };
 
 export const updateTask = async (id: number, task: Partial<Task>) => {
   const res = await api.put<Task>(`/tasks/${id}`, task);
-
-  return res.data;
+  // Normalize dependencyIds
+  return { ...res.data, dependencyIds: res.data.dependencyIds || [] };
 };
 
 export const deleteTask = async (id: number) => {
   await api.delete(`/tasks/${id}`);
+};
+
+/* ---------------------- Task Dependencies ---------------------- */
+// ---- Dependency API calls ----
+// These functions wrap REST calls to the DependencyController.
+// Ensure consistency with backend mappings and DTOs.
+
+/** Add a dependency: taskId depends on dependsOnId */
+export const addDependency = async (taskId: number, dependsOnId: number) => {
+  const res = await api.post(`/tasks/${taskId}/dependencies`, { dependsOnId });
+  return res.data; // returns DependencyDto
+};
+
+/** Remove a dependency (by dependency ID, not taskId) */
+export const removeDependency = async (taskId: number, depId: number) => {
+  await api.delete(`/tasks/${taskId}/dependencies/${depId}`);
+};
+
+/** List all dependencies (prerequisites) of a given task */
+export const getDependencies = async (taskId: number) => {
+  const res = await api.get(`/tasks/${taskId}/dependencies`);
+  // Backend returns DependencyDto[], so normalize if only IDs are needed
+  return res.data as DependencyDto[];
+};
+
+/** (Optional) List all dependents (tasks blocked by this task) */
+export const getDependents = async (taskId: number) => {
+  const res = await api.get(`/tasks/${taskId}/dependencies/dependents`);
+  return res.data as DependencyDto[];
 };
 
 /* ---------------------- Collaboration ---------------------- */
@@ -120,46 +179,76 @@ export interface InviteUserRequest {
   expirationHours?: number;
 }
 
-export const getProjectCollaborators = async (projectId: number): Promise<ProjectCollaborator[]> => {
-  const res = await api.get<ProjectCollaborator[]>(`/projects/${projectId}/collaboration/collaborators`);
+export const getProjectCollaborators = async (
+  projectId: number
+): Promise<ProjectCollaborator[]> => {
+  const res = await api.get<ProjectCollaborator[]>(
+    `/projects/${projectId}/collaboration/collaborators`
+  );
   return res.data;
 };
 
-export const getProjectInvitations = async (projectId: number): Promise<ProjectInvitation[]> => {
-  const res = await api.get<ProjectInvitation[]>(`/projects/${projectId}/collaboration/invitations`);
+export const getProjectInvitations = async (
+  projectId: number
+): Promise<ProjectInvitation[]> => {
+  const res = await api.get<ProjectInvitation[]>(
+    `/projects/${projectId}/collaboration/invitations`
+  );
   return res.data;
 };
 
-export const inviteUserToProject = async (projectId: number, request: InviteUserRequest): Promise<ProjectInvitation> => {
-  const res = await api.post<ProjectInvitation>(`/projects/${projectId}/collaboration/invite`, request);
+export const inviteUserToProject = async (
+  projectId: number,
+  request: InviteUserRequest
+): Promise<ProjectInvitation> => {
+  const res = await api.post<ProjectInvitation>(
+    `/projects/${projectId}/collaboration/invite`,
+    request
+  );
   return res.data;
 };
 
-export const removeCollaborator = async (projectId: number, userId: number): Promise<void> => {
-  await api.delete(`/projects/${projectId}/collaboration/collaborators/${userId}`);
+export const removeCollaborator = async (
+  projectId: number,
+  userId: number
+): Promise<void> => {
+  await api.delete(
+    `/projects/${projectId}/collaboration/collaborators/${userId}`
+  );
 };
 
-export const checkProjectAccess = async (projectId: number): Promise<boolean> => {
-  const res = await api.get<boolean>(`/projects/${projectId}/collaboration/check-access`);
+export const checkProjectAccess = async (
+  projectId: number
+): Promise<boolean> => {
+  const res = await api.get<boolean>(
+    `/projects/${projectId}/collaboration/check-access`
+  );
   return res.data;
 };
 
 export const getUserInvitations = async (): Promise<ProjectInvitation[]> => {
-  const res = await api.get<ProjectInvitation[]>('/invitations/my-invitations');
+  const res = await api.get<ProjectInvitation[]>("/invitations/my-invitations");
   return res.data;
 };
 
-export const acceptInvitation = async (invitationId: string): Promise<ProjectCollaborator> => {
-  const res = await api.post<ProjectCollaborator>('/invitations/public/respond-by-id', {
-    id: parseInt(invitationId),
-    response: 'accept'
-  });
+export const acceptInvitation = async (
+  invitationId: string
+): Promise<ProjectCollaborator> => {
+  const res = await api.post<ProjectCollaborator>(
+    "/invitations/public/respond-by-id",
+    {
+      id: parseInt(invitationId),
+      response: "accept",
+    }
+  );
   return res.data;
 };
 
-export const declineInvitation = async (invitationId: string): Promise<void> => {
-  await api.post('/invitations/public/respond-by-id', {
+export const declineInvitation = async (
+  invitationId: string
+): Promise<void> => {
+  await api.post("/invitations/public/respond-by-id", {
     id: parseInt(invitationId),
-    response: 'decline'
+    response: "decline",
   });
 };

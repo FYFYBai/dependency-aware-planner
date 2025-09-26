@@ -1,3 +1,4 @@
+@import "./styles/frappe-gantt.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

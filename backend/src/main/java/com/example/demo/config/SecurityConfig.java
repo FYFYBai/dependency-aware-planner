@@ -53,6 +53,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
             .requestMatchers("/api/lists/**").authenticated()
             .requestMatchers("/api/tasks/**").authenticated()
             .requestMatchers("/api/invitations/**").authenticated()
+            .requestMatchers("/error").permitAll()
             .anyRequest().denyAll()
         )
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
