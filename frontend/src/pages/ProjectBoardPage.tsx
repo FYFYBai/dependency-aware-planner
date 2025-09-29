@@ -558,38 +558,53 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
     });
   };
 
-  if (!showPanel) {
-    return (
+  return (
+    <>
+      {/* Button to open collaboration panel */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="btn btn-outline-primary btn-sm mb-3"
+        className="btn btn-outline-primary btn-sm"
         onClick={() => setShowPanel(true)}
       >
         <Users size={16} className="me-2" />
         Manage Collaboration
       </motion.button>
-    );
-  }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-4 p-3 bg-white border rounded shadow-sm"
-    >
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="mb-0">
-          <Users size={20} className="me-2" />
-          Collaboration
-        </h5>
-        <button
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => setShowPanel(false)}
+      {/* Modal overlay */}
+      {showPanel && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            zIndex: 1050,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPanel(false);
+            }
+          }}
         >
-          <X size={16} />
-        </button>
-      </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white border rounded shadow-lg p-4"
+            style={{ maxWidth: "500px", width: "90%", maxHeight: "80vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="mb-0">
+                <Users size={20} className="me-2" />
+                Collaboration
+              </h5>
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setShowPanel(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
 
       {/* Invite Form */}
       {showInviteForm ? (
@@ -716,7 +731,10 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
           </div>
         </div>
       )}
-    </motion.div>
+          </motion.div>
+        </div>
+      )}
+    </>
   );
 }
 
