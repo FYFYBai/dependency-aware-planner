@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Navbar from "../components/Navbar";
+import { useAuth } from "../hooks/useAuth";
 import {
   MDBContainer,
   MDBCard,
@@ -54,14 +55,13 @@ import { CSS } from "@dnd-kit/utilities";
 import GraphView from "../components/GraphView";
 import GanttView from "../components/GanttView";
 
-/* ---------------- Helpers to avoid ID collisions ---------------- */
+// Drag and drop ID helpers to avoid collisions between lists and tasks
 const listKey = (id: number) => `list-${id}`;
 const taskKey = (id: number) => `task-${id}`;
 const isListKey = (id: UniqueIdentifier) => String(id).startsWith("list-");
 const isTaskKey = (id: UniqueIdentifier) => String(id).startsWith("task-");
 const parseKey = (id: UniqueIdentifier) => Number(String(id).split("-")[1]);
 
-/* ---------------- Sortable/droppable wrappers ---------------- */
 function SortableItem({
   id,
   children,
@@ -94,7 +94,6 @@ function Droppable({
   );
 }
 
-/* ---------------- Tasks (per-list) ---------------- */
 function TaskSection({
   projectId,
   list,
@@ -131,12 +130,7 @@ function TaskSection({
     },
   });
 
-  // ---------------------------
-  // Mutation: Update Task
-  // ---------------------------
-  // Handles updating a task and synchronizing dependency relationships.
-  // Ensures both tasks (lists) and dependency queries are invalidated
-  // so that UI updates immediately without a manual refresh.
+  // Update task and synchronize dependency relationships
   const updateTaskMutation = useMutation({
     mutationFn: (task: Task) =>
       updateTask(task.id, {
@@ -154,17 +148,15 @@ function TaskSection({
       await queryClient.invalidateQueries({ queryKey: ["lists", projectId] });
 
       if (editingTask) {
-        const prevIds = updated.dependencyIds || []; // what server has now
-        const nextIds = editingTask.dependencyIds || []; // what user wants
-
+        // Sync dependencies: add new ones and remove old ones
+        const prevIds = updated.dependencyIds || [];
+        const nextIds = editingTask.dependencyIds || [];
         const ops: Promise<any>[] = [];
 
-        // Add missing deps
         for (const id of nextIds.filter((id) => !prevIds.includes(id))) {
           ops.push(addDependency(updated.id, id));
         }
 
-        // Remove extras
         for (const id of prevIds.filter((id) => !nextIds.includes(id))) {
           ops.push(removeDependency(updated.id, id));
         }
@@ -176,7 +168,7 @@ function TaskSection({
           });
           await queryClient.invalidateQueries({
             queryKey: ["lists", projectId],
-          }); // refresh tasks again
+          });
         }
       }
 
@@ -185,12 +177,9 @@ function TaskSection({
     onError: async (error: any) => {
       let errorMessage = "Failed to update task";
 
-      // Case 1: Axios-style error
       if (error?.response?.data?.message) {
         errorMessage = error.response.data.message;
-      }
-      // Case 2: Fetch/React Query Response error
-      else if (error instanceof Response) {
+      } else if (error instanceof Response) {
         try {
           const data = await error.json();
           if (data?.message) {
@@ -199,21 +188,14 @@ function TaskSection({
         } catch (_) {
           // ignore parsing failure
         }
-      }
-      // Case 3: Standard JS error
-      else if (error instanceof Error) {
+      } else if (error instanceof Error) {
         errorMessage = error.message;
       }
 
-      setError(errorMessage); // show in form
+      setError(errorMessage);
     },
   });
 
-  // ---------------------------
-  // Mutation: Delete Task
-  // ---------------------------
-  // Ensures that the tasks (lists) query is refreshed
-  // so UI reflects deletion immediately.
   const deleteTaskMutation = useMutation({
     mutationFn: deleteTask,
     onSuccess: () => {
@@ -221,10 +203,6 @@ function TaskSection({
     },
   });
 
-  // ---------------------------
-  // Handler: Add Task
-  // ---------------------------
-  // Validates and triggers task creation.
   const handleAddTask = () => {
     if (!newTask.trim()) {
       setError("Task name is required");
@@ -295,15 +273,15 @@ function TaskSection({
                     className="mb-2"
                   />
 
-                  {/* Dependency selector */}
+                  {/* Dependencies */}
                   <label className="form-label">Dependencies</label>
                   <select
                     multiple
-                    value={(editingTask.dependencyIds || []).map(String)} // convert to string[]
+                    value={(editingTask.dependencyIds || []).map(String)}
                     onChange={(e) => {
                       const selected = Array.from(
                         e.target.selectedOptions,
-                        (opt) => Number(opt.value) // convert back to numbers
+                        (opt) => Number(opt.value)
                       );
                       setEditingTask({
                         ...editingTask,
@@ -401,7 +379,6 @@ function TaskSection({
                                   ) {
                                     removeDependency(task.id, id)
                                       .then(() => {
-                                        // Update the local editingTask state if this task is currently being edited
                                         if (
                                           editingTask &&
                                           editingTask.id === task.id
@@ -414,8 +391,6 @@ function TaskSection({
                                               ),
                                           });
                                         }
-
-                                        // Re-fetch the latest data from backend
                                         queryClient.invalidateQueries({
                                           queryKey: ["lists", projectId],
                                         });
@@ -493,9 +468,9 @@ function TaskSection({
   );
 }
 
-/* ---------------- Collaboration Management ---------------- */
 function CollaborationPanel({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [showPanel, setShowPanel] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -507,6 +482,17 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
     queryFn: () => getProjectCollaborators(projectId),
     enabled: showPanel,
   });
+
+  // Determine user's role: admin can manage, owners (not in collaborators list) can manage
+  const getCurrentUserRole = () => {
+    if (!collaborators || !user) return null;
+    const userCollaborator = collaborators.find(c => c.username === user.username);
+    return userCollaborator ? userCollaborator.role : null;
+  };
+
+  const currentUserRole = getCurrentUserRole();
+  const canManageCollaborators = currentUserRole === 'admin' || 
+    (currentUserRole === null && user);
 
   const { data: invitations } = useQuery<ProjectInvitation[]>({
     queryKey: ["invitations", projectId],
@@ -560,7 +546,6 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
 
   return (
     <>
-      {/* Button to open collaboration panel */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
@@ -571,7 +556,6 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
         Manage Collaboration
       </motion.button>
 
-      {/* Modal overlay */}
       {showPanel && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
@@ -606,7 +590,6 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
               </button>
             </div>
 
-      {/* Invite Form */}
       {showInviteForm ? (
         <motion.div
           initial={{ opacity: 0 }}
@@ -647,17 +630,18 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
           </div>
         </motion.div>
       ) : (
-        <MDBBtn
-          size="sm"
-          className="mb-3"
-          onClick={() => setShowInviteForm(true)}
-        >
-          <UserPlus size={16} className="me-2" />
-          Invite Collaborator
-        </MDBBtn>
+        canManageCollaborators && (
+          <MDBBtn
+            size="sm"
+            className="mb-3"
+            onClick={() => setShowInviteForm(true)}
+          >
+            <UserPlus size={16} className="me-2" />
+            Invite Collaborator
+          </MDBBtn>
+        )
       )}
 
-      {/* Collaborators List */}
       <div className="mb-3">
         <h6 className="mb-2">Current Collaborators</h6>
         {collaborators?.length === 0 ? (
@@ -686,20 +670,21 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
                     </span>
                   </div>
                 </div>
-                <button
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={() => removeMutation.mutate(collaborator.userId)}
-                  disabled={removeMutation.isPending}
-                >
-                  <X size={14} />
-                </button>
+                {canManageCollaborators && (
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => removeMutation.mutate(collaborator.userId)}
+                    disabled={removeMutation.isPending}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Pending Invitations */}
       {invitations && invitations.length > 0 && (
         <div>
           <h6 className="mb-2">Pending Invitations</h6>
@@ -738,7 +723,6 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
   );
 }
 
-/* ---------------- Add-list card ---------------- */
 function AddListCard({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const [addingList, setAddingList] = useState(false);
@@ -802,7 +786,6 @@ function AddListCard({ projectId }: { projectId: number }) {
   );
 }
 
-/* ---------------- Page ---------------- */
 export default function ProjectBoardPage() {
   const { projectId: projectIdParam } = useParams();
   const projectId = Number(projectIdParam);
@@ -858,6 +841,7 @@ export default function ProjectBoardPage() {
     const aId = String(active.id);
     const oId = String(over.id);
 
+    // Handle list reordering
     if (isListKey(aId) && isListKey(oId)) {
       const activeListId = parseKey(aId);
       const overListId = parseKey(oId);
@@ -877,6 +861,7 @@ export default function ProjectBoardPage() {
       return;
     }
 
+    // Handle task movement between lists or within same list
     if (!isTaskKey(aId)) return;
 
     const activeTaskId = parseKey(aId);
@@ -913,6 +898,7 @@ export default function ProjectBoardPage() {
         : [...targetList.tasks];
 
     if (sourceList.id === targetList.id) {
+      // Task moved within same list - reorder positions
       const reordered = arrayMove(
         [...sourceList.tasks],
         from,
@@ -1003,7 +989,6 @@ export default function ProjectBoardPage() {
           <CollaborationPanel projectId={projectId} />
         </div>
 
-        {/* View toggle buttons */}
         <div className="btn-group mb-3">
           <button
             className={`btn btn-sm ${
@@ -1031,7 +1016,6 @@ export default function ProjectBoardPage() {
           </button>
         </div>
 
-        {/* Conditional rendering for views */}
         {view === "board" && (
           <DndContext
             sensors={sensors}
@@ -1107,7 +1091,6 @@ export default function ProjectBoardPage() {
                             </motion.div>
                           ) : null}
 
-                          {/* Tasks */}
                           <TaskSection
                             projectId={projectId}
                             list={list}
