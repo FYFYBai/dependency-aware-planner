@@ -2,7 +2,6 @@ package com.example.demo.entity;
 
 /**
  * Defines the allowed roles for project collaborators.
- * These values must match the database constraint.
  */
 public enum Role {
     VIEWER("viewer"),
