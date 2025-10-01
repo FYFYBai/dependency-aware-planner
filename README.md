@@ -1,77 +1,53 @@
-Dependency-Aware Planner
+# Dependency-Aware Planner
 
 A full-stack Trello-like task management application with dependency awareness, critical path detection, and visualization.
 
-Features:
+## Features
 
-Projects & Lists
+### Projects & Lists
+- Organize work into projects.
+- Create dynamic board lists (columns) like **Todo**, **In Progress**, **Done**.
 
-Organize work into projects.
+### Tasks
+- Create, update, move, and delete tasks.
+- Add deadlines and descriptions.
 
-Create dynamic board lists (columns) like Todo, In Progress, Done.
+### Dependencies
+- Link tasks with dependencies (task A must be completed before task B).
+- Prevent circular dependencies with cycle detection.
+- View the **critical path** (longest chain of blockers).
 
-Tasks
+### Visualization
+- **Graph view**: interactive dependency graph using Cytoscape.js.
+- **Timeline / Gantt view**: project scheduling with Frappe Gantt.
 
-Create, update, move, and delete tasks.
+### Simulation
+- Run “what-if” scenarios: mark tasks done and instantly see what unblocks.
 
-Add deadlines and descriptions.
+### Export
+- Export deadlines as `.ics` (calendar).
+- Generate `.pdf` project reports with jsPDF + AutoTable.
 
-Dependencies
+---
 
-Link tasks with dependencies (task A must be completed before task B).
+## Tech Stack
 
-Prevent circular dependencies with cycle detection.
+### Backend
+- Spring Boot 3 (REST APIs, DI, Security)
+- Spring Security with JWT
+- Spring Data JPA + Hibernate
+- PostgreSQL (via Docker + Compose)
+- JUnit 5 + Testcontainers (integration testing)
 
-View the critical path (longest chain of blockers).
+### Frontend
+- React (TypeScript) + Vite
+- Tailwind CSS for styling
+- dnd-kit for drag-and-drop board
+- Cytoscape.js (graph view)
+- Frappe Gantt (timeline view)
+- Axios + TanStack Query (data fetching/state)
 
-Visualization
-
-Graph view: interactive dependency graph using Cytoscape.js.
-
-Timeline / Gantt view: project scheduling with Frappe Gantt.
-
-Simulation
-
-Run “what-if” scenarios: mark tasks done and instantly see what unblocks.
-
-Export
-
-Export deadlines as .ics (calendar).
-
-Generate .pdf project reports with jsPDF + AutoTable.
-
-Tech Stack:
-
-Backend:
-
-Spring Boot 3 (REST APIs, DI, Security)
-
-Spring Security with JWT
-
-Spring Data JPA + Hibernate
-
-PostgreSQL (via Docker + Compose)
-
-JUnit 5 + Testcontainers (integration testing)
-
-Frontend:
-
-React (TypeScript) + Vite
-
-Tailwind CSS for styling
-
-dnd-kit for drag-and-drop board
-
-Cytoscape.js (graph view)
-
-Frappe Gantt (timeline view)
-
-Axios + TanStack Query (data fetching/state)
-
-Deployment
-
-Docker + Docker Compose
-
-Render/Fly.io (backend hosting)
-
-Neon/Supabase (Postgres hosting)
+### Deployment
+- Docker + Docker Compose
+- Render/Fly.io (backend hosting)
+- Neon/Supabase (Postgres hosting)
