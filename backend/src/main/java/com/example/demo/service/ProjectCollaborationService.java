@@ -23,8 +23,8 @@ import com.example.demo.repository.ProjectRepository;
 import com.example.demo.repository.UserRepository;
 
 /**
- * Handles all project collaboration operations including invitations,
- * collaborator management, and permission checking.
+ * Service for managing project collaboration including invitations, collaborator management,
+ * and activity logging for all collaboration-related actions.
  */
 @Service
 @Transactional
@@ -45,6 +45,13 @@ public class ProjectCollaborationService {
     @Autowired
     private EmailService emailService;
     
+    @Autowired
+    private ProjectActivityService activityService;
+    
+    /**
+     * Invites a user to collaborate on a project and logs the invitation activity.
+     * Validates permissions and prevents duplicate invitations.
+     */
     public ProjectInvitationDto inviteUser(Long projectId, String inviterUsername, InviteUserRequest request) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
@@ -75,6 +82,9 @@ public class ProjectCollaborationService {
         
         invitation = invitationRepository.save(invitation);
         
+        activityService.logCollaboratorInvited(projectId, inviterUsername, 
+                                              request.getEmail(), request.getRole());
+        
         try {
             emailService.sendProjectInvitationEmail(invitation);
         } catch (Exception e) {
@@ -84,6 +94,10 @@ public class ProjectCollaborationService {
         return ProjectInvitationDto.fromEntity(invitation);
     }
     
+    /**
+     * Accepts a project invitation and logs the collaboration activity.
+     * Validates the invitation token and user email before creating the collaboration.
+     */
     public ProjectCollaboratorDto acceptInvitation(String token, String username) {
         ProjectInvitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Invalid invitation token"));
@@ -105,6 +119,9 @@ public class ProjectCollaborationService {
                 invitation.getProject(), user, invitation.getInvitedBy(), invitation.getRole()
         );
         collaborator = collaboratorRepository.save(collaborator);
+        
+        activityService.logCollaboratorJoined(invitation.getProject().getId(), username, 
+                                             invitation.getRole().name());
         
         return ProjectCollaboratorDto.fromEntity(collaborator);
     }
@@ -151,6 +168,10 @@ public class ProjectCollaborationService {
                 .collect(Collectors.toList());
     }
     
+    /**
+     * Removes a collaborator from a project and logs the removal activity.
+     * Prevents removal of project owners and validates requester permissions.
+     */
     public void removeCollaborator(Long projectId, Long userId, String requesterUsername) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
@@ -174,6 +195,8 @@ public class ProjectCollaborationService {
                 .findByProjectIdAndUserId(projectId, userId);
         
         if (collaborator.isPresent()) {
+            activityService.logCollaboratorLeft(projectId, requesterUsername, 
+                                              collaborator.get().getUser().getUsername());
             collaboratorRepository.delete(collaborator.get());
         }
     }

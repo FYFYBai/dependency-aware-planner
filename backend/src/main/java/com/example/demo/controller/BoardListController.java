@@ -37,17 +37,26 @@ public class BoardListController {
     }
 
     @PostMapping
-    public BoardListDto create(@RequestBody BoardList list) {
-        return listService.create(list);
+    public BoardListDto create(@RequestBody BoardList list, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return listService.create(list, user);
     }
 
     @PutMapping("/{id}")
-    public BoardListDto update(@PathVariable Long id, @RequestBody BoardListDto dto) {
-        return listService.update(id, dto);
+    public BoardListDto update(@PathVariable Long id, @RequestBody BoardListDto dto, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        return listService.update(id, dto, user);
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
-        listService.delete(id);
+    public void delete(@PathVariable Long id, Authentication auth) {
+        String username = auth.getName();
+        User user = userRepo.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        listService.delete(id, user);
     }
 }

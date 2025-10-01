@@ -1,14 +1,26 @@
 package com.example.demo.controller;
 
-import com.example.demo.dto.DependencyDto;
-import com.example.demo.entity.Dependency;
-import com.example.demo.service.DependencyService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.demo.dto.DependencyDto;
+import com.example.demo.entity.Dependency;
+import com.example.demo.entity.User;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.service.DependencyService;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * REST controller for managing task dependencies.
@@ -29,6 +41,7 @@ import java.util.Map;
 public class DependencyController {
 
     private final DependencyService dependencyService;
+    private final UserRepository userRepository;
 
     /**
      * Add a dependency: taskId depends on dependsOnId.
@@ -38,12 +51,17 @@ public class DependencyController {
     @PostMapping
     public ResponseEntity<DependencyDto> addDependency(
             @PathVariable Long taskId,
-            @RequestBody Map<String, Long> body) {
+            @RequestBody Map<String, Long> body,
+            Authentication authentication) {
 
         Long dependsOnId = body.get("dependsOnId");
         log.info("DEBUG dependsOnId={}, taskId={}", dependsOnId, taskId);
 
-        Dependency dep = dependencyService.addDependency(taskId, dependsOnId);
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Dependency dep = dependencyService.addDependency(taskId, dependsOnId, user);
         return ResponseEntity.ok(DependencyDto.from(dep));
     }
 
@@ -54,9 +72,14 @@ public class DependencyController {
     @DeleteMapping("/{dependsOnId}")
     public ResponseEntity<Void> removeDependency(
             @PathVariable Long taskId,
-            @PathVariable Long dependsOnId) {
+            @PathVariable Long dependsOnId,
+            Authentication authentication) {
 
-        dependencyService.removeByTaskAndDependsOn(taskId, dependsOnId);
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        dependencyService.removeByTaskAndDependsOn(taskId, dependsOnId, user);
         return ResponseEntity.noContent().build();
     }
 

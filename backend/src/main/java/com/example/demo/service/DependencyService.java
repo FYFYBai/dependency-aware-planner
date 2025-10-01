@@ -1,22 +1,23 @@
 package com.example.demo.service;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.demo.entity.Dependency;
 import com.example.demo.entity.Task;
+import com.example.demo.entity.User;
 import com.example.demo.repository.DependencyRepository;
 import com.example.demo.repository.TaskRepository;
 import com.example.demo.strategy.CycleDetectionStrategy;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
- * Service layer responsible for managing task dependencies.
- * Validates dependency rules (same project, no self-dependency, no cycles)
- * before persisting to the database.
+ * Service for managing task dependencies with cycle detection and activity logging.
+ * Validates dependency rules and prevents circular dependencies while tracking all changes.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,17 +27,13 @@ public class DependencyService {
     private final DependencyRepository dependencyRepo;
     private final TaskRepository taskRepo;
     private final CycleDetectionStrategy cycleDetectionStrategy;
+    private final ProjectActivityService activityService;
 
     /**
-     * Add a dependency (taskId -> dependsOnId).
-     *
-     * @param taskId       the task that will depend on another
-     * @param dependsOnId  the prerequisite task
-     * @return persisted Dependency entity
-     * @throws IllegalArgumentException   if validation fails (self-dependency, cross-project, cycle, duplicate)
-     * @throws EntityNotFoundException    if either task does not exist
+     * Adds a dependency between two tasks and logs the activity.
+     * Validates that tasks belong to the same project and prevents cycles.
      */
-    public Dependency addDependency(Long taskId, Long dependsOnId) {
+    public Dependency addDependency(Long taskId, Long dependsOnId, User user) {
         if (taskId.equals(dependsOnId)) {
             throw new IllegalArgumentException("Task cannot depend on itself.");
         }
@@ -62,21 +59,28 @@ public class DependencyService {
         Dependency dep = new Dependency();
         dep.setTask(task);
         dep.setDependsOn(dependsOn);
-        return dependencyRepo.save(dep);
+        Dependency saved = dependencyRepo.save(dep);
+        
+        activityService.logDependencyAdded(projectId1, user.getUsername(), 
+                                         task.getName(), dependsOn.getName());
+        
+        return saved;
     }
 
     /**
-     * Remove an existing dependency between two tasks.
-     *
-     * @param taskId       the dependent task id
-     * @param dependsOnId  the prerequisite task id
-     * @throws EntityNotFoundException if the dependency does not exist
+     * Removes a dependency between two tasks and logs the activity.
+     * Validates that the dependency exists before removal.
      */
-    public void removeByTaskAndDependsOn(Long taskId, Long dependsOnId) {
+    public void removeByTaskAndDependsOn(Long taskId, Long dependsOnId, User user) {
         Dependency existing = dependencyRepo.findByTaskIdAndDependsOnId(taskId, dependsOnId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Dependency not found for task=" + taskId + " dependsOn=" + dependsOnId
                 ));
+        
+        Long projectId = resolveProjectId(existing.getTask());
+        activityService.logDependencyRemoved(projectId, user.getUsername(), 
+                                           existing.getTask().getName(), existing.getDependsOn().getName());
+        
         dependencyRepo.delete(existing);
     }
 

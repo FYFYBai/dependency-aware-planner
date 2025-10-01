@@ -54,6 +54,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import GraphView from "../components/GraphView";
 import GanttView from "../components/GanttView";
+import HistoryOverview from "../components/HistoryOverview";
 
 // Drag and drop ID helpers to avoid collisions between lists and tasks
 const listKey = (id: number) => `list-${id}`;
@@ -986,7 +987,10 @@ export default function ProjectBoardPage() {
       >
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h3 className="mb-0">{project.name}</h3>
-          <CollaborationPanel projectId={projectId} />
+          <div className="d-flex">
+            <HistoryOverview projectId={projectId} />
+            <CollaborationPanel projectId={projectId} />
+          </div>
         </div>
 
         <div className="btn-group mb-3">

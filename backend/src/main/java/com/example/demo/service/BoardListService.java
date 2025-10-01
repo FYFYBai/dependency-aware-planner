@@ -13,12 +13,17 @@ import com.example.demo.repository.ProjectRepository;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Service for managing board lists including CRUD operations and activity logging.
+ * Handles list creation, updates, deletion, and position management.
+ */
 @Service
 @RequiredArgsConstructor
 public class BoardListService {
 
     private final BoardListRepository listRepo;
     private final ProjectRepository projectRepo;
+    private final ProjectActivityService activityService;
 
 public List<BoardListDto> getAllByProject(Long projectId, User user) {
     // Check if user has access to the project
@@ -32,23 +37,44 @@ public List<BoardListDto> getAllByProject(Long projectId, User user) {
 }
 
 
-    public BoardListDto create(BoardList list) {
+    public BoardListDto create(BoardList list, User user) {
         // auto-set position
         int nextPosition = listRepo.findByProjectIdOrderByPositionAsc(list.getProject().getId()).size() + 1;
         list.setPosition(nextPosition);
-        return ProjectMapper.toDto(listRepo.save(list));
+        BoardList saved = listRepo.save(list);
+        
+        activityService.logListCreated(list.getProject().getId(), user.getUsername(), 
+                                     saved.getId(), saved.getName());
+        
+        return ProjectMapper.toDto(saved);
     }
 
 
-    public BoardListDto update(Long id, BoardListDto dto) {
+    public BoardListDto update(Long id, BoardListDto dto, User user) {
         BoardList list = listRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("List not found"));
+        
+        String oldValues = String.format("{\"name\":\"%s\",\"position\":%d}", list.getName(), list.getPosition());
+        
         list.setName(dto.getName());
         list.setPosition(dto.getPosition());
-        return ProjectMapper.toDto(listRepo.save(list));
+        BoardList saved = listRepo.save(list);
+        
+        String newValues = String.format("{\"name\":\"%s\",\"position\":%d}", saved.getName(), saved.getPosition());
+        
+        activityService.logListUpdated(list.getProject().getId(), user.getUsername(), 
+                                     saved.getId(), saved.getName(), oldValues, newValues);
+        
+        return ProjectMapper.toDto(saved);
     }
 
-    public void delete(Long id) {
+    public void delete(Long id, User user) {
+        BoardList list = listRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("List not found"));
+        
+        activityService.logListDeleted(list.getProject().getId(), user.getUsername(), 
+                                     list.getId(), list.getName());
+        
         listRepo.deleteById(id);
     }
 }

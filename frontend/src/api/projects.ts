@@ -252,3 +252,101 @@ export const declineInvitation = async (
     response: "decline",
   });
 };
+
+// Project Activity/History API
+export interface ProjectActivity {
+  id: number;
+  projectId: number;
+  username: string;
+  userEmail: string;
+  activityType: string;
+  entityType: string;
+  entityId?: number;
+  entityName?: string;
+  action: string;
+  description: string;
+  oldValues?: string;
+  newValues?: string;
+  timestamp: string;
+}
+
+export const getProjectActivities = async (
+  projectId: number
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities`
+  );
+  return res.data;
+};
+
+export const getProjectActivitiesPaginated = async (
+  projectId: number,
+  page: number = 0,
+  size: number = 20
+): Promise<{ content: ProjectActivity[]; totalElements: number; totalPages: number }> => {
+  const res = await api.get(
+    `/projects/${projectId}/activities/paginated?page=${page}&size=${size}`
+  );
+  return res.data;
+};
+
+export const getRecentProjectActivities = async (
+  projectId: number,
+  limit: number = 10
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities/recent?limit=${limit}`
+  );
+  return res.data;
+};
+
+export const getProjectActivitiesByDateRange = async (
+  projectId: number,
+  startDate: string,
+  endDate: string
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities/date-range?startDate=${startDate}&endDate=${endDate}`
+  );
+  return res.data;
+};
+
+export const getUserActivities = async (
+  projectId: number,
+  userId: number
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities/user/${userId}`
+  );
+  return res.data;
+};
+
+export const getActivitiesByType = async (
+  projectId: number,
+  activityType: string
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities/type/${activityType}`
+  );
+  return res.data;
+};
+
+export const getEntityActivities = async (
+  projectId: number,
+  entityType: string,
+  entityId: number
+): Promise<ProjectActivity[]> => {
+  const res = await api.get<ProjectActivity[]>(
+    `/projects/${projectId}/activities/entity/${entityType}/${entityId}`
+  );
+  return res.data;
+};
+
+export const getActivityStatistics = async (
+  projectId: number
+): Promise<Array<[string, number]>> => {
+  const res = await api.get<Array<[string, number]>>(
+    `/projects/${projectId}/activities/statistics`
+  );
+  return res.data;
+};
