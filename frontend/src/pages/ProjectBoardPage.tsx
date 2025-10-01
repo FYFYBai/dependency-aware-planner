@@ -611,7 +611,7 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
             >
-              <option value="member">Member</option>
+              {/* <option value="member">Member</option> */}
               <option value="admin">Admin</option>
             </select>
           </div>
