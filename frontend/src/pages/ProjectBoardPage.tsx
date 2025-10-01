@@ -475,7 +475,7 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
   const [showPanel, setShowPanel] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
+  const [inviteRole, setInviteRole] = useState("viewer");
   const [error, setError] = useState("");
 
   const { data: collaborators } = useQuery<ProjectCollaborator[]>({
@@ -507,7 +507,7 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invitations", projectId] });
       setInviteEmail("");
-      setInviteRole("member");
+      setInviteRole("viewer");
       setShowInviteForm(false);
       setError("");
     },
@@ -612,7 +612,8 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
             >
-              {/* <option value="member">Member</option> */}
+              <option value="viewer">Viewer</option>
+              <option value="editor">Editor</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -662,9 +663,11 @@ function CollaborationPanel({ projectId }: { projectId: number }) {
                       className={`badge ${
                         collaborator.role === "admin"
                           ? "bg-warning"
-                          : collaborator.role === "owner"
-                          ? "bg-danger"
-                          : "bg-info"
+                          : collaborator.role === "editor"
+                          ? "bg-primary"
+                          : collaborator.role === "viewer"
+                          ? "bg-info"
+                          : "bg-secondary"
                       }`}
                     >
                       {collaborator.role}

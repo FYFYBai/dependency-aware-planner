@@ -5,8 +5,9 @@ package com.example.demo.entity;
  * These values must match the database constraint.
  */
 public enum Role {
-    ADMIN("admin"),
-    MEMBER("member");
+    VIEWER("viewer"),
+    EDITOR("editor"),
+    ADMIN("admin");
     
     private final String value;
     

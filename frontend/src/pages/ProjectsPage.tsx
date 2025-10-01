@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import { getAllProjects, getProjectCollaborators, type Project, type ProjectCollaborator } from "../api/projects";
 import { MDBContainer, MDBRow, MDBCol, MDBCard, MDBCardBody, MDBCardTitle, MDBCardText } from "mdb-react-ui-kit";
-import { Users, Crown, Shield } from "lucide-react";
+import { Users, Crown, Shield, Edit, Eye } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 const projectColors = [
@@ -52,6 +52,10 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
     switch (userRole) {
       case 'admin':
         return <Shield size={14} className="me-1" />;
+      case 'editor':
+        return <Edit size={14} className="me-1" />;
+      case 'viewer':
+        return <Eye size={14} className="me-1" />;
       case 'owner':
         return <Crown size={14} className="me-1" />;
       default:
@@ -63,7 +67,9 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
     if (!userRole) return null;
     
     const badgeClass = userRole === 'admin' ? 'bg-warning' : 
-                      userRole === 'owner' ? 'bg-danger' : 'bg-info';
+                      userRole === 'editor' ? 'bg-primary' :
+                      userRole === 'viewer' ? 'bg-info' :
+                      userRole === 'owner' ? 'bg-danger' : 'bg-secondary';
     
     return (
       <span className={`badge ${badgeClass} small`} style={{ fontSize: '0.7rem' }}>
